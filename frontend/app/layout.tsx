@@ -6,13 +6,13 @@ const display = Cormorant_Garamond({ variable: "--font-display", subsets: ["lati
 const sans = DM_Sans({ variable: "--font-sans", subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 export const metadata: Metadata = {
-  title: "Asteria House | A quieter kind of stay",
-  description: "Asteria House is a considered hotel in the heart of Colombo.",
+  title: "The Grandview Hotel | Book Direct",
+  description: "Comfortable rooms, thoughtful service, and simple direct booking.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <body className={`${display.variable} ${sans.variable}`}>{children}</body>
     </html>
   );
