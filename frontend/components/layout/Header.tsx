@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { HOTEL_INFO } from '../../data/hotelData';
 import { Button } from '../ui/Button';
 import { Menu, X, Phone, Compass, CalendarCheck, Sparkles } from 'lucide-react';
@@ -23,6 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentPage = 'facilities',
   onNavigate,
 }) => {
+  const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -39,6 +41,14 @@ export const Header: React.FC<HeaderProps> = ({
     if (onNavigate) {
       onNavigate(targetPage);
     }
+    const routes: Record<NavPage, string> = {
+      home: '/',
+      rooms: '/rooms',
+      about: '/about',
+      facilities: '/facilities',
+      booking: '/booking',
+    };
+    router.push(routes[targetPage]);
     if (sectionId) {
       setTimeout(() => {
         const element = document.getElementById(sectionId);

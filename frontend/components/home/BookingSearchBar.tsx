@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { BookingSearchState } from '../../types/types';
 import { DatePickerInput, SelectDropdown } from '../ui/FormInputs';
