@@ -1,0 +1,4 @@
+import Link from "next/link";
+export function Header() {
+  return <header className="absolute left-0 right-0 top-0 z-10 text-white"><div className="container flex items-center justify-between border-b border-white/20 py-5"><Link href="/" className="display text-2xl font-semibold tracking-wide">ASTERIA <span className="text-[#e99a83]">HOUSE</span></Link><nav className="hidden items-center gap-8 text-sm md:flex"><Link href="/rooms" className="hover:text-[#e99a83]">Rooms</Link><Link href="/facilities" className="hover:text-[#e99a83]">Facilities</Link><Link href="/about" className="hover:text-[#e99a83]">Our story</Link></nav><Link href="/booking" className="border border-white px-4 py-2 text-xs font-bold uppercase tracking-widest transition hover:bg-white hover:text-[#17211d]">Book a stay</Link></div></header>;
+}

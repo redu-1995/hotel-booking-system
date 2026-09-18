@@ -1,0 +1,14 @@
+@import "tailwindcss";
+:root { --ink: #17211d; --muted: #68756d; --cream: #f4f0e7; --paper: #fbfaf6; --sage: #789585; --coral: #d8735c; --line: #dfe3dc; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-sans), sans-serif; }
+a { color: inherit; text-decoration: none; }
+button, input, select, textarea { font: inherit; }
+.display { font-family: var(--font-display), serif; }
+.container { width: min(1160px, calc(100% - 48px)); margin: 0 auto; }
+.eyebrow { color: var(--coral); font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.section-pad { padding: 96px 0; }
+.fade-up { animation: fade-up .7s ease both; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 640px) { .container { width: min(100% - 32px, 1160px); } .section-pad { padding: 64px 0; } }

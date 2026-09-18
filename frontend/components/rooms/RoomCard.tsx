@@ -1,0 +1,6 @@
+import Link from "next/link";
+import type { Room } from "@/types";
+export function RoomCard({ room, index = 0 }: { room: Room; index?: number }) {
+  const type = room.room_type_details;
+  return <article className="group fade-up" style={{ animationDelay: `${index * 100}ms` }}><Link href={`/rooms/${room.id}`}><div className={`relative flex aspect-[4/3] items-end overflow-hidden p-6 ${index % 2 ? "bg-[#b7c5b5]" : "bg-[#d9c4a8]"}`}><div className="absolute -right-4 -top-8 h-44 w-44 rounded-full border-[22px] border-white/20" /><div className="absolute bottom-10 right-12 h-24 w-24 rotate-12 border border-white/50" /><span className="relative text-xs uppercase tracking-[.2em] text-white/80">Room {room.room_number}</span><span className="absolute right-5 top-5 bg-white px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#17211d]">Explore</span></div><div className="flex items-start justify-between border-b border-[var(--line)] py-5"><div><h3 className="display text-3xl">{type.name}</h3><p className="mt-1 text-sm text-[var(--muted)]">{type.bed_type} · Up to {type.max_guests} guests</p></div><p className="text-right text-sm"><strong className="block text-base">${type.base_price}</strong><span className="text-[var(--muted)]">per night</span></p></div></Link></article>;
+}
