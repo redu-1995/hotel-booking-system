@@ -6,7 +6,7 @@ import { HOTEL_INFO } from '../../data/hotelData';
 import { Button } from '../ui/Button';
 import { Menu, X, Phone, Compass, CalendarCheck, Sparkles } from 'lucide-react';
 
-export type NavPage = 'home' | 'rooms' | 'about' | 'facilities' | 'booking';
+export type NavPage = 'home' | 'rooms' | 'about' |  'booking';
 
 interface HeaderProps {
   onBookNowClick?: () => void;
@@ -45,7 +45,6 @@ export const Header: React.FC<HeaderProps> = ({
       home: '/',
       rooms: '/rooms',
       about: '/about',
-      facilities: '/facilities',
       booking: '/booking',
     };
     router.push(routes[targetPage]);
@@ -176,20 +175,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="w-1.5 h-1.5 rounded-full bg-[#D4A853]" />
                 )}
               </button>
-              <button
-                id="nav-link-facilities"
-                onClick={() => handleNav('facilities')}
-                className={`py-1.5 transition-colors cursor-pointer relative flex items-center gap-1.5 ${
-                  currentPage === 'facilities'
-                    ? 'text-[#12355B] font-bold after:content-[\'\'] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px] after:bg-[#12355B]'
-                    : 'text-[#4B5563] hover:text-[#12355B] after:content-[\'\'] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-[#12355B] hover:after:w-full after:transition-all'
-                }`}
-              >
-                <span>Facilities</span>
-                {currentPage === 'facilities' && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#D4A853]" />
-                )}
-              </button>
+              
               <button
                 id="nav-link-booking"
                 onClick={() => handleNav('booking')}
@@ -276,19 +262,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 )}
               </button>
-              <button
-                onClick={() => handleNav('facilities')}
-                className={`text-left py-2 border-b border-gray-100 flex items-center justify-between ${
-                  currentPage === 'facilities' ? 'text-[#12355B] font-bold' : 'text-[#4B5563]'
-                }`}
-              >
-                <span>Hotel Facilities</span>
-                {currentPage === 'facilities' && (
-                  <span className="text-xs bg-[#12355B] text-white px-2 py-0.5 rounded-full font-sans font-medium">
-                    Active
-                  </span>
-                )}
-              </button>
+             
               <button
                 onClick={() => handleNav('booking')}
                 className={`text-left py-2 border-b border-gray-100 flex items-center justify-between ${
