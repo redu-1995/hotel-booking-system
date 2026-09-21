@@ -134,13 +134,7 @@ export const Footer: React.FC<FooterProps> = ({
                 </button>
               </li>
               <li>
-                <button
-                  onClick={() => handleNavOrScroll('facilities')}
-                  className="hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
-                >
-                  <ChevronRight className="w-3.5 h-3.5 text-[#D4A853]" />
-                  Hotel Facilities
-                </button>
+                
               </li>
               <li>
                 <button
