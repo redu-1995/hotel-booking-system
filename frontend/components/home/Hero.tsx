@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '../ui/Button';
 import { BookingSearchBar } from './BookingSearchBar';
-import { Header } from '../layout/Header';
+
 import { BookingSearchState } from '../../types/types';
 import { ArrowRight, Star, ShieldCheck, Award } from 'lucide-react';
 
@@ -24,7 +24,8 @@ export const Hero: React.FC<HeroProps> = ({
 }) => {
   return (
     <section id="home" className="relative w-full">
-      <Header />
+      {/* Header */}
+      
       {/* Visual Container with Hotel Hero Image & Overlay */}
       <div className="relative min-h-[580px] lg:min-h-[640px] flex items-center justify-center overflow-hidden">
         {/* Background Image */}

@@ -6,7 +6,7 @@ import { HOTEL_INFO } from '../../data/hotelData';
 import { Button } from '../ui/Button';
 import { Menu, X, Phone, Compass, CalendarCheck, Sparkles } from 'lucide-react';
 
-export type NavPage = 'home' | 'rooms' | 'about' |  'booking';
+export type NavPage = 'home' | 'rooms' | 'about' | 'booking' | 'facilities';
 
 interface HeaderProps {
   onBookNowClick?: () => void;
@@ -46,6 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
       rooms: '/rooms',
       about: '/about',
       booking: '/booking',
+      facilities: '/facilities',
     };
     router.push(routes[targetPage]);
     if (sectionId) {

@@ -193,17 +193,7 @@ export const Footer: React.FC<FooterProps> = ({
                   Flexible 24-Hour Cancellation
                 </span>
               </li>
-              {onOpenDesignSystem && (
-                <li className="pt-1">
-                  <button
-                    onClick={onOpenDesignSystem}
-                    className="text-xs text-[#D4A853] hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5 text-[#D4A853]" />
-                    Design System & Figma Components
-                  </button>
-                </li>
-              )}
+              
             </ul>
           </div>
 
