@@ -86,13 +86,8 @@ export default function App() {
     setSelectedRoomForDetails(room);
   };
 
-  const handleOpenBookingModal = (room?: Room) => {
-    if (room) {
-      setSelectedRoomForBooking(room);
-    } else {
-      setSelectedRoomForBooking(ROOMS_DATA[0]);
-    }
-    setIsBookingModalOpen(true);
+  const handleOpenBookingModal = () => {
+    setCurrentPage('booking');
   };
 
   const handleAddInquiry = (newInquiryData: Omit<Inquiry, 'id' | 'referenceNumber' | 'createdAt'>) => {
@@ -334,7 +329,7 @@ export default function App() {
         <FeaturedRooms
           rooms={ROOMS_DATA}
           onViewDetails={handleOpenRoomDetails}
-          onBookRoom={(room) => handleOpenBookingModal(room)}
+          onBookRoom={() => handleOpenBookingModal()}
           onOpenInquiry={() => scrollToSection('inquiries-management')}
           onExploreAllRooms={() => setCurrentPage('rooms')}
         />
@@ -384,7 +379,7 @@ export default function App() {
         searchState={searchState}
         onBookRoom={(room) => {
           setSelectedRoomForDetails(null);
-          handleOpenBookingModal(room);
+          handleOpenBookingModal();
         }}
         onSendInquiry={(room) => {
           setSelectedRoomForDetails(null);

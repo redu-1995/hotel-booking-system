@@ -55,7 +55,7 @@ export async function apiList<T>(path: string, options?: RequestOptions): Promis
 }
 
 export async function getRooms(): Promise<Room[]> {
-  try { return await apiList<Room>("/rooms/", { next: { revalidate: 60 } }); } catch { return fallbackRooms; }
+  return apiList<Room>("/rooms/", { next: { revalidate: 60 } });
 }
 export async function getRoomTypes(): Promise<RoomType[]> {
   try { return await apiList<RoomType>("/room-types/", { next: { revalidate: 60 } }); } catch { return fallbackRooms.map((room) => room.room_type_details); }

@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header, NavPage } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
@@ -7,8 +7,10 @@ import { Button } from '../../components/ui/Button';
 import { TextInput, DatePickerInput, SelectDropdown, TextArea } from '../../components/ui/FormInputs';
 import { StatusBadge, AvailabilityBadge } from '../../components/ui/Badge';
 import { RoomDetailsModal } from '../../components/rooms/RoomDetailsModal';
-import { HOTEL_INFO, ROOMS_DATA } from '../../data/hotelData';
+import { HOTEL_INFO } from '../../data/hotelData';
 import { Room, BookingSearchState, Reservation, Inquiry } from '../../types/types';
+import type { Room as ApiRoom } from '@/types';
+import { getRooms } from '@/lib/api/client';
 import {
   Calendar,
   MessageSquare,
@@ -48,6 +50,36 @@ interface BookingInquiryPageProps {
   onAddInquiry?: (inquiry: Omit<Inquiry, 'id' | 'referenceNumber' | 'createdAt'>) => void;
 }
 
+function toUiRoom(room: ApiRoom): Room {
+  const roomType = room.room_type_details;
+  const name = roomType?.name || `Room ${room.room_number}`;
+  const normalizedName = name.toLowerCase();
+  const category: Room['category'] = normalizedName.includes('suite')
+    ? 'suite'
+    : normalizedName.includes('deluxe')
+      ? 'deluxe'
+      : 'standard';
+
+  return {
+    id: String(room.id),
+    name,
+    category,
+    shortDescription: roomType?.description || `Room ${room.room_number} at The Grandview Hotel.`,
+    fullDescription: roomType?.description || `Room ${room.room_number} at The Grandview Hotel.`,
+    pricePerNight: Number(roomType?.base_price || 0),
+    capacityGuests: roomType?.max_guests || 1,
+    bedType: roomType?.bed_type || 'Standard bed',
+    sizeSqM: 0,
+    image: '',
+    galleryImages: [],
+    keyAmenities: roomType?.amenities_list || [],
+    allAmenities: roomType?.amenities_list || [],
+    rating: 0,
+    reviewsCount: 0,
+    availability: room.is_available ? 'available' : 'unavailable',
+  };
+}
+
 export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   onNavigate,
   onOpenDesignSystem,
@@ -69,14 +101,33 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   const [searchNotification, setSearchNotification] = useState<string | null>(null);
 
   // 3. Selected room for booking
-  const [selectedRoom, setSelectedRoom] = useState<Room>(() => {
-    if (initialRoomId) {
-      const found = ROOMS_DATA.find((r) => r.id === initialRoomId);
-      if (found) return found;
-    }
-    // Default to Deluxe Room or first available
-    return ROOMS_DATA.find((r) => r.category === 'deluxe') || ROOMS_DATA[0];
-  });
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [roomsError, setRoomsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    getRooms().then((apiRooms) => {
+      if (!isMounted) return;
+      if (apiRooms.length === 0) {
+        setRoomsError('No rooms are currently configured in the hotel system.');
+        return;
+      }
+      const loadedRooms = apiRooms.map(toUiRoom);
+      setRooms(loadedRooms);
+      setSelectedRoom((currentRoom) => {
+        const matchingRoom = initialRoomId
+          ? loadedRooms.find((room) => room.id === initialRoomId)
+          : undefined;
+        return matchingRoom || loadedRooms.find((room) => room.category === 'deluxe') || loadedRooms[0] || currentRoom;
+      });
+    }).catch(() => {
+      if (isMounted) setRoomsError('Unable to load rooms from the hotel system.');
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [initialRoomId]);
 
   // Modal for Room Details
   const [roomDetailsModalRoom, setRoomDetailsModalRoom] = useState<Room | null>(null);
@@ -104,7 +155,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   const [inquiryCheckIn, setInquiryCheckIn] = useState<string>('');
   const [inquiryCheckOut, setInquiryCheckOut] = useState<string>('');
   const [inquiryGuests, setInquiryGuests] = useState<number>(2);
-  const [inquiryRoomType, setInquiryRoomType] = useState<string>(selectedRoom.name);
+  const [inquiryRoomType, setInquiryRoomType] = useState<string>('');
   const [inquiryErrors, setInquiryErrors] = useState<Record<string, string>>({});
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState<boolean>(false);
   const [inquirySuccessData, setInquirySuccessData] = useState<{
@@ -116,6 +167,10 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
 
   // 6. UI utility state
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedRoom) setInquiryRoomType((currentRoomType) => currentRoomType || selectedRoom.name);
+  }, [selectedRoom]);
 
   // Calculate nights
   const calculateNights = () => {
@@ -131,7 +186,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   };
 
   const nights = calculateNights();
-  const subtotal = selectedRoom.pricePerNight * nights * roomsCount;
+  const subtotal = selectedRoom ? selectedRoom.pricePerNight * nights * roomsCount : 0;
   const directDiscount = Math.round(subtotal * 0.1); // 10% direct booking benefit
   const taxes = Math.round((subtotal - directDiscount) * 0.08); // 8% local hospitality tax
   const estimatedTotal = subtotal - directDiscount + taxes;
@@ -166,7 +221,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
 
   // Filter available rooms based on criteria
   const availableRoomsList = useMemo(() => {
-    return ROOMS_DATA.filter((room) => {
+    return rooms.filter((room) => {
       // Category filter
       if (preferredCategory !== 'all' && room.category !== preferredCategory) {
         return false;
@@ -177,7 +232,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
       }
       return true;
     });
-  }, [preferredCategory, guestsCount]);
+  }, [rooms, preferredCategory, guestsCount]);
 
   // Handle Availability Search
   const handleCheckAvailability = (e?: React.FormEvent) => {
@@ -237,7 +292,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   // Submit Booking
   const handleBookingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateBookingForm()) {
+    if (!selectedRoom || !validateBookingForm()) {
       return;
     }
 
@@ -308,7 +363,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   // Submit Inquiry
   const handleInquirySubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateInquiryForm()) {
+    if (!selectedRoom || !validateInquiryForm()) {
       return;
     }
 
@@ -356,6 +411,21 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
     setCopiedRef(text);
     setTimeout(() => setCopiedRef(null), 2500);
   };
+
+  if (!selectedRoom) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#F8F7F4] px-6 text-center">
+        <div>
+          <h1 className="font-serif text-3xl font-bold text-[#12355B]">
+            {roomsError ? 'Rooms are temporarily unavailable' : 'Loading available rooms...'}
+          </h1>
+          <p className="mt-3 text-sm text-[#6B7280]">
+            {roomsError || 'Connecting to the hotel booking system.'}
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8F7F4] text-[#1F2937] antialiased">
@@ -698,12 +768,18 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                 >
                   {/* Room Image */}
                   <div className="relative aspect-[16/10] w-full overflow-hidden bg-gray-100">
-                    <img
-                      src={room.image}
-                      alt={room.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      loading="lazy"
-                    />
+                    {room.image ? (
+                      <img
+                        src={room.image}
+                        alt={room.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-sm font-semibold text-[#12355B]">
+                        {room.name}
+                      </div>
+                    )}
                     {/* Status Badge */}
                     <div className="absolute top-3 left-3 z-10">
                       <AvailabilityBadge
@@ -941,11 +1017,9 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                   {/* Selected Room Pill Banner */}
                   <div className="p-4 rounded-[10px] bg-[#F8F7F4] border border-[#E5E7EB] flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={selectedRoom.image}
-                        alt={selectedRoom.name}
-                        className="w-14 h-14 rounded-[8px] object-cover border border-[#E5E7EB]"
-                      />
+                      <div className="flex h-14 w-14 items-center justify-center rounded-[8px] border border-[#E5E7EB] bg-white text-center text-[10px] font-semibold text-[#12355B]">
+                        {selectedRoom.name}
+                      </div>
                       <div>
                         <div className="text-xs text-[#6B7280]">Selected Room</div>
                         <div className="font-serif font-bold text-[#12355B] text-base">
@@ -1124,11 +1198,9 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
 
                 {/* Selected Room Visual */}
                 <div className="flex gap-4 items-center mb-5 pb-5 border-b border-[#E5E7EB]">
-                  <img
-                    src={selectedRoom.image}
-                    alt={selectedRoom.name}
-                    className="w-20 h-20 rounded-[10px] object-cover border border-[#E5E7EB] shrink-0"
-                  />
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[10px] border border-[#E5E7EB] bg-[#F8F7F4] text-center text-[10px] font-semibold text-[#12355B]">
+                    {selectedRoom.name}
+                  </div>
                   <div>
                     <span className="text-[10px] uppercase tracking-wider text-[#D4A853] font-semibold block">
                       {selectedRoom.category}
@@ -1513,7 +1585,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                             label="Preferred Room Type"
                             value={inquiryRoomType}
                             onChange={(e) => setInquiryRoomType(e.target.value)}
-                            options={ROOMS_DATA.map((r) => ({
+                            options={rooms.map((r) => ({
                               value: r.name,
                               label: r.name,
                               sublabel: `ETB ${r.pricePerNight.toLocaleString()}`,

@@ -309,7 +309,7 @@ export const FacilitiesPage: React.FC<FacilitiesPageProps> = ({
       {/* 1. HEADER (Facilities highlighted as active) */}
       <Header
         currentPage="facilities"
-        onBookNowClick={() => setSelectedRoomForBooking(ROOMS_DATA[0])}
+        onBookNowClick={() => onNavigate('booking')}
         onOpenInquiryClick={() => onOpenInquiry()}
         onOpenDesignSystemClick={onOpenDesignSystem}
         onNavigate={onNavigate}
@@ -681,7 +681,7 @@ export const FacilitiesPage: React.FC<FacilitiesPageProps> = ({
                     id="featured-book-stay-btn"
                     variant="primary"
                     size="md"
-                    onClick={() => setSelectedRoomForBooking(ROOMS_DATA[1])}
+                    onClick={() => onNavigate('booking')}
                     className="shadow-sm"
                   >
                     <CalendarCheck className="w-4 h-4 mr-2" />
@@ -1004,7 +1004,7 @@ export const FacilitiesPage: React.FC<FacilitiesPageProps> = ({
                 id="cta-book-stay-btn"
                 variant="primary"
                 size="lg"
-                onClick={() => setSelectedRoomForBooking(ROOMS_DATA[0])}
+                onClick={() => onNavigate('booking')}
                 className="bg-[#D4A853] hover:bg-[#c29642] text-[#12355B] font-bold border-none shadow-md px-8"
               >
                 <CalendarCheck className="w-4 h-4 mr-2" />
@@ -1044,7 +1044,7 @@ export const FacilitiesPage: React.FC<FacilitiesPageProps> = ({
 
       {/* 11. FOOTER */}
       <Footer
-        onOpenBooking={() => setSelectedRoomForBooking(ROOMS_DATA[0])}
+        onOpenBooking={() => onNavigate('booking')}
         onOpenInquiry={() => onOpenInquiry()}
         onOpenDesignSystem={onOpenDesignSystem}
         onNavigate={onNavigate}
@@ -1117,7 +1117,7 @@ export const FacilitiesPage: React.FC<FacilitiesPageProps> = ({
                 size="sm"
                 onClick={() => {
                   setActiveLightboxImage(null);
-                  setSelectedRoomForBooking(ROOMS_DATA[0]);
+                  onNavigate('booking');
                 }}
                 className="bg-white text-[#12355B] hover:bg-gray-100 border-none shrink-0"
               >

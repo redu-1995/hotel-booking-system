@@ -228,7 +228,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({
       <Header
         currentPage="about"
         onNavigate={onNavigate}
-        onBookNowClick={() => setSelectedRoomForBooking(ROOMS_DATA[0])}
+        onBookNowClick={() => onNavigate('booking')}
         onOpenInquiryClick={() => onOpenInquiry()}
         onOpenDesignSystemClick={onOpenDesignSystem}
       />
@@ -827,7 +827,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({
 
       {/* 10. Footer */}
       <Footer
-        onOpenBooking={() => setSelectedRoomForBooking(ROOMS_DATA[0])}
+        onOpenBooking={() => onNavigate('booking')}
         onOpenInquiry={() => onOpenInquiry()}
         onOpenDesignSystem={onOpenDesignSystem}
         onNavigate={onNavigate}
