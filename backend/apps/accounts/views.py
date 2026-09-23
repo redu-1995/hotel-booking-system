@@ -1,4 +1,5 @@
 from django.contrib.auth import login, logout
+from django.middleware.csrf import get_token
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from rest_framework import permissions, status, viewsets
@@ -55,6 +56,13 @@ class LoginView(APIView):
 		serializer.is_valid(raise_exception=True)
 		login(request, serializer.validated_data["user"])
 		return Response(UserSerializer(serializer.validated_data["user"]).data)
+
+
+class CsrfTokenView(APIView):
+	permission_classes = (permissions.AllowAny,)
+
+	def get(self, request):
+		return Response({"detail": "CSRF cookie set.", "csrf_token": get_token(request)})
 
 
 class LogoutView(APIView):

@@ -1,6 +1,16 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
-export async function createInquiry(payload: Record<string, unknown>) {
-  const response = await fetch(`${API_URL}/inquiries/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-  if (!response.ok) throw new Error("Unable to create inquiry");
-  return response.json();
-}
+import { apiFetch, apiList } from "./client";
+
+export type InquiryPayload = {
+  name: string;
+  guest?: number | null;
+  preferred_room_type?: number | null;
+  check_in_date: string;
+  check_out_date: string;
+  number_of_guests: number;
+  message: string;
+  source?: string;
+};
+
+export function getInquiries(query = "") { return apiList(`/inquiries/${query ? `?${query}` : ""}`); }
+export function createInquiry(payload: InquiryPayload) { return apiFetch("/inquiries/", { method: "POST", body: payload }); }
+export function updateInquiryStatus(id: number, status: string) { return apiFetch(`/inquiries/${id}/status/`, { method: "POST", body: { status } }); }

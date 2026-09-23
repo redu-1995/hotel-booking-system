@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Header, NavPage } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
 import { RoomCard } from '../../components/rooms/RoomCard';
@@ -10,6 +10,8 @@ import { BookingSearchBar } from '../../components/home/BookingSearchBar';
 import { Button } from '../../components/ui/Button';
 import { ROOMS_DATA } from '../../data/hotelData';
 import { Room, BookingSearchState, Reservation } from '../../types/types';
+import type { Room as ApiRoom } from '@/types';
+import { getRooms } from '@/lib/api/client';
 import {
   SlidersHorizontal,
   RotateCcw,
@@ -32,6 +34,42 @@ interface RoomsPageProps {
   onOpenDesignSystem?: () => void;
   initialSearchState?: BookingSearchState;
   onConfirmReservation?: (reservation: Reservation) => void;
+}
+
+const roomImages = ROOMS_DATA.map((room) => room.image);
+
+function toUiRoom(room: ApiRoom, index: number): Room {
+  const roomType = room.room_type_details;
+  const typeName = roomType?.name || `Room ${room.room_number}`;
+  const normalizedName = typeName.toLowerCase();
+  const category: Room['category'] = normalizedName.includes('suite')
+    ? 'suite'
+    : normalizedName.includes('deluxe')
+      ? 'deluxe'
+      : 'standard';
+  const availability: Room['availability'] = room.is_available
+    ? 'available'
+    : 'unavailable';
+
+  return {
+    id: String(room.id),
+    name: typeName,
+    category,
+    shortDescription: roomType?.description || `Room ${room.room_number} at The Grandview Hotel.`,
+    fullDescription: roomType?.description || `Room ${room.room_number} at The Grandview Hotel.`,
+    pricePerNight: Number(roomType?.base_price || 0),
+    capacityGuests: roomType?.max_guests || 1,
+    bedType: roomType?.bed_type || 'Standard bed',
+    sizeSqM: 0,
+    image: roomImages[index % roomImages.length],
+    galleryImages: [roomImages[index % roomImages.length]],
+    keyAmenities: roomType?.amenities_list || [],
+    allAmenities: roomType?.amenities_list || [],
+    rating: 0,
+    reviewsCount: 0,
+    availability,
+    isPopular: index === 0,
+  };
 }
 
 export const RoomsPage: React.FC<RoomsPageProps> = ({
@@ -66,6 +104,19 @@ export const RoomsPage: React.FC<RoomsPageProps> = ({
   // Modal states
   const [selectedRoomForDetails, setSelectedRoomForDetails] = useState<Room | null>(null);
   const [selectedRoomForBooking, setSelectedRoomForBooking] = useState<Room | null>(null);
+  const [rooms, setRooms] = useState<Room[]>(ROOMS_DATA);
+
+  useEffect(() => {
+    let isMounted = true;
+    getRooms().then((apiRooms) => {
+      if (isMounted && apiRooms.length > 0) {
+        setRooms(apiRooms.map(toUiRoom));
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const availableAmenityOptions = [
     'High-Speed Wi-Fi',
@@ -128,7 +179,7 @@ export const RoomsPage: React.FC<RoomsPageProps> = ({
 
   // Filter and Sort Rooms
   const filteredRooms = useMemo(() => {
-    let result = [...ROOMS_DATA];
+    let result = [...rooms];
 
     // Room Type Filter
     if (selectedType !== 'All') {
@@ -185,7 +236,7 @@ export const RoomsPage: React.FC<RoomsPageProps> = ({
     }
 
     return result;
-  }, [selectedType, selectedCapacity, selectedAvailability, selectedAmenities, priceSort]);
+  }, [rooms, selectedType, selectedCapacity, selectedAvailability, selectedAmenities, priceSort]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8F7F4] text-[#1F2937]">
@@ -193,7 +244,7 @@ export const RoomsPage: React.FC<RoomsPageProps> = ({
       <Header
         currentPage="rooms"
         onNavigate={onNavigate}
-        onBookNowClick={() => setSelectedRoomForBooking(ROOMS_DATA[1])}
+        onBookNowClick={() => setSelectedRoomForBooking(rooms[1] ?? rooms[0])}
         onOpenInquiryClick={() => onOpenInquiry()}
         onOpenDesignSystemClick={onOpenDesignSystem}
       />
@@ -421,7 +472,7 @@ export const RoomsPage: React.FC<RoomsPageProps> = ({
               </p>
             </div>
             <div className="text-sm text-[#4B5563] font-medium bg-white px-3.5 py-1.5 rounded-[8px] border border-[#E5E7EB] self-start sm:self-auto shadow-2xs">
-              Showing <span className="font-bold text-[#12355B]">{filteredRooms.length}</span> of {ROOMS_DATA.length} rooms
+              Showing <span className="font-bold text-[#12355B]">{filteredRooms.length}</span> of {rooms.length} rooms
             </div>
           </div>
 
@@ -532,7 +583,7 @@ export const RoomsPage: React.FC<RoomsPageProps> = ({
 
       {/* 8. Footer */}
       <Footer
-        onOpenBooking={() => setSelectedRoomForBooking(ROOMS_DATA[1])}
+        onOpenBooking={() => setSelectedRoomForBooking(rooms[1] ?? rooms[0])}
         onOpenInquiry={() => onOpenInquiry()}
         onOpenDesignSystem={onOpenDesignSystem}
         onNavigate={onNavigate}
@@ -560,7 +611,7 @@ export const RoomsPage: React.FC<RoomsPageProps> = ({
           isOpen={!!selectedRoomForBooking}
           onClose={() => setSelectedRoomForBooking(null)}
           selectedRoom={selectedRoomForBooking}
-          allRooms={ROOMS_DATA}
+          allRooms={rooms}
           searchState={searchState}
           onConfirmReservation={(res) => {
             if (onConfirmReservation) {
