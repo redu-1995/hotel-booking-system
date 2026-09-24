@@ -100,7 +100,6 @@ export const Footer: React.FC<FooterProps> = ({
             </div>
           </div>
 
-          {/* Quick Links */}
           <div>
             <h4 className="font-serif font-semibold text-lg text-white mb-4">
               Quick Links
@@ -121,7 +120,7 @@ export const Footer: React.FC<FooterProps> = ({
                   className="hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <ChevronRight className="w-3.5 h-3.5 text-[#D4A853]" />
-                  Rooms & Suites
+                  Rooms
                 </button>
               </li>
               <li>
@@ -130,11 +129,17 @@ export const Footer: React.FC<FooterProps> = ({
                   className="hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <ChevronRight className="w-3.5 h-3.5 text-[#D4A853]" />
-                  About The Grandview
+                  About
                 </button>
               </li>
               <li>
-                
+                <button
+                  onClick={() => handleNavOrScroll('facilities')}
+                  className="hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ChevronRight className="w-3.5 h-3.5 text-[#D4A853]" />
+                  Facilities
+                </button>
               </li>
               <li>
                 <button
@@ -142,16 +147,16 @@ export const Footer: React.FC<FooterProps> = ({
                   className="hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <ChevronRight className="w-3.5 h-3.5 text-[#D4A853]" />
-                  Direct Booking & Inquiries
+                  Booking
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => handleNavOrScroll('home', 'inquiries-management')}
+                  onClick={() => handleNavOrScroll('inquiry')}
                   className="hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <ChevronRight className="w-3.5 h-3.5 text-[#D4A853]" />
-                  Inquiry & Reservation Tracker
+                  Inquiry
                 </button>
               </li>
             </ul>

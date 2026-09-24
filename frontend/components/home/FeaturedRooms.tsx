@@ -31,17 +31,15 @@ export const FeaturedRooms: React.FC<FeaturedRoomsProps> = ({
       <div className="text-center max-w-3xl mx-auto mb-12">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#12355B]/5 text-[#12355B] text-xs font-semibold uppercase tracking-widest mb-3">
           <Sparkles className="w-3.5 h-3.5 text-[#D4A853]" />
-          Accommodations & Suites
+          Featured stays
         </div>
 
-        {/* Section Heading: 32–40px Bold */}
         <h2 className="font-serif font-bold text-3xl sm:text-4xl text-[#12355B] tracking-tight mb-4">
-          Find Your Perfect Room
+          Stay in the room that fits your trip
         </h2>
 
-        {/* Subtitle */}
         <p className="text-base sm:text-lg text-[#6B7280] leading-relaxed">
-          Choose from our comfortable and carefully designed rooms.
+          Choose a room type that matches your stay, travel style, and guest count.
         </p>
 
         {/* Category Filters */}
@@ -54,7 +52,7 @@ export const FeaturedRooms: React.FC<FeaturedRoomsProps> = ({
                 : 'bg-white text-[#6B7280] hover:text-[#12355B] border border-[#E5E7EB]'
             }`}
           >
-            All Rooms ({rooms.length})
+            All
           </button>
           <button
             onClick={() => setActiveFilter('standard')}
@@ -64,7 +62,7 @@ export const FeaturedRooms: React.FC<FeaturedRoomsProps> = ({
                 : 'bg-white text-[#6B7280] hover:text-[#12355B] border border-[#E5E7EB]'
             }`}
           >
-            Standard Rooms
+            Standard
           </button>
           <button
             onClick={() => setActiveFilter('deluxe')}
@@ -74,7 +72,7 @@ export const FeaturedRooms: React.FC<FeaturedRoomsProps> = ({
                 : 'bg-white text-[#6B7280] hover:text-[#12355B] border border-[#E5E7EB]'
             }`}
           >
-            Deluxe Rooms
+            Deluxe
           </button>
           <button
             onClick={() => setActiveFilter('suite')}
@@ -84,7 +82,7 @@ export const FeaturedRooms: React.FC<FeaturedRoomsProps> = ({
                 : 'bg-white text-[#6B7280] hover:text-[#12355B] border border-[#E5E7EB]'
             }`}
           >
-            Executive Suites
+            Suites
           </button>
         </div>
       </div>
@@ -111,12 +109,11 @@ export const FeaturedRooms: React.FC<FeaturedRoomsProps> = ({
             rightIcon={<ArrowRight className="w-4 h-4 text-[#12355B]" />}
             className="px-8 shadow-2xs hover:bg-[#12355B] hover:text-white transition-all"
           >
-            Explore All Rooms & Filter Catalog ({rooms.length})
+            View All Rooms
           </Button>
         </div>
       )}
 
-      {/* Direct Booking Benefit Strip */}
       <div className="mt-14 p-6 bg-white rounded-[12px] border border-[#E5E7EB] shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3.5 text-left">
           <div className="w-11 h-11 rounded-[8px] bg-[#12355B]/5 flex items-center justify-center text-[#12355B] shrink-0">
@@ -124,10 +121,10 @@ export const FeaturedRooms: React.FC<FeaturedRoomsProps> = ({
           </div>
           <div>
             <h4 className="font-serif font-semibold text-base text-[#12355B]">
-              Need customized booking for long stays, delegations, or events?
+              Planning a group stay or special event?
             </h4>
             <p className="text-xs sm:text-sm text-[#6B7280]">
-              Our guest relations managers provide personalized rates and tailored room allocation.
+              Tell us your dates, guest count, and requirements and our team will help arrange the right stay.
             </p>
           </div>
         </div>
@@ -140,7 +137,7 @@ export const FeaturedRooms: React.FC<FeaturedRoomsProps> = ({
           rightIcon={<ArrowRight className="w-4 h-4" />}
           className="shrink-0 w-full md:w-auto"
         >
-          Send Custom Inquiry
+          Send an Inquiry
         </Button>
       </div>
     </section>

@@ -6,7 +6,7 @@ import { HOTEL_INFO } from '../../data/hotelData';
 import { Button } from '../ui/Button';
 import { Menu, X, Phone, Compass, CalendarCheck, Sparkles } from 'lucide-react';
 
-export type NavPage = 'home' | 'rooms' | 'about' | 'booking' | 'facilities';
+export type NavPage = 'home' | 'rooms' | 'about' | 'booking' | 'facilities' | 'inquiry';
 
 interface HeaderProps {
   onBookNowClick?: () => void;
@@ -21,7 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   onBookNowClick,
   onOpenInquiryClick,
   onOpenDesignSystemClick,
-  currentPage = 'facilities',
+  currentPage = 'home',
   onNavigate,
 }) => {
   const router = useRouter();
@@ -47,6 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
       about: '/about',
       booking: '/booking',
       facilities: '/facilities',
+      inquiry: '/inquiry',
     };
     router.push(routes[targetPage]);
     if (sectionId) {
@@ -178,6 +179,20 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
               
               <button
+                id="nav-link-facilities"
+                onClick={() => handleNav('facilities')}
+                className={`py-1.5 transition-colors cursor-pointer relative flex items-center gap-1.5 ${
+                  currentPage === 'facilities'
+                    ? 'text-[#12355B] font-bold after:content-[\'\'] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px] after:bg-[#12355B]'
+                    : 'text-[#4B5563] hover:text-[#12355B] after:content-[\'\'] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-[#12355B] hover:after:w-full after:transition-all'
+                }`}
+              >
+                <span>Facilities</span>
+                {currentPage === 'facilities' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#D4A853]" />
+                )}
+              </button>
+              <button
                 id="nav-link-booking"
                 onClick={() => handleNav('booking')}
                 className={`py-1.5 transition-colors cursor-pointer relative flex items-center gap-1.5 ${
@@ -186,17 +201,24 @@ export const Header: React.FC<HeaderProps> = ({
                     : 'text-[#4B5563] hover:text-[#12355B] after:content-[\'\'] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-[#12355B] hover:after:w-full after:transition-all'
                 }`}
               >
-                <span>Booking & Inquiry</span>
+                <span>Booking</span>
                 {currentPage === 'booking' && (
                   <span className="w-1.5 h-1.5 rounded-full bg-[#D4A853]" />
                 )}
               </button>
               <button
-                id="nav-link-contact"
-                onClick={() => handleNav('home', 'contact-footer')}
-                className="py-1.5 text-[#4B5563] hover:text-[#12355B] transition-colors cursor-pointer relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-[#12355B] hover:after:w-full after:transition-all"
+                id="nav-link-inquiry"
+                onClick={() => handleNav('inquiry')}
+                className={`py-1.5 transition-colors cursor-pointer relative flex items-center gap-1.5 ${
+                  currentPage === 'inquiry'
+                    ? 'text-[#12355B] font-bold after:content-[\'\'] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px] after:bg-[#12355B]'
+                    : 'text-[#4B5563] hover:text-[#12355B] after:content-[\'\'] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-[#12355B] hover:after:w-full after:transition-all'
+                }`}
               >
-                Contact
+                <span>Inquiry</span>
+                {currentPage === 'inquiry' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#D4A853]" />
+                )}
               </button>
             </nav>
 

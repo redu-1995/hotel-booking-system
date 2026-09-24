@@ -11,6 +11,9 @@ import { HOTEL_INFO } from '../../data/hotelData';
 import { Room, BookingSearchState, Reservation, Inquiry } from '../../types/types';
 import type { Room as ApiRoom } from '@/types';
 import { getRooms } from '@/lib/api/client';
+import { createBooking, getAvailability } from '@/lib/api/bookings';
+import { createGuest } from '@/lib/api/guests';
+import { createInquiry } from '@/lib/api/inquiries';
 import {
   Calendar,
   MessageSquare,
@@ -99,6 +102,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   const [preferredCategory, setPreferredCategory] = useState<string>('all');
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [searchNotification, setSearchNotification] = useState<string | null>(null);
+  const [availableRoomIds, setAvailableRoomIds] = useState<number[] | null>(null);
 
   // 3. Selected room for booking
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
@@ -226,27 +230,34 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
       if (preferredCategory !== 'all' && room.category !== preferredCategory) {
         return false;
       }
+      if (availableRoomIds && !availableRoomIds.includes(Number(room.id))) {
+        return false;
+      }
       // Capacity filter
       if (room.capacityGuests < guestsCount && guestsCount > 2) {
         return false;
       }
       return true;
     });
-  }, [rooms, preferredCategory, guestsCount]);
+  }, [rooms, availableRoomIds, preferredCategory, guestsCount]);
 
   // Handle Availability Search
-  const handleCheckAvailability = (e?: React.FormEvent) => {
+  const handleCheckAvailability = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsSearching(true);
     setSearchNotification(null);
-
-    setTimeout(() => {
-      setIsSearching(false);
+    try {
+      const availableRooms = await getAvailability(checkIn, checkOut, guestsCount);
+      setAvailableRoomIds(availableRooms.map((room) => room.id));
       setSearchNotification(
-        `Found ${availableRoomsList.length} rooms matching your dates (${formatDateFriendly(checkIn)} - ${formatDateFriendly(checkOut)}) for ${guestsCount} guest(s).`
+        `Found ${availableRooms.length} rooms matching your dates (${formatDateFriendly(checkIn)} - ${formatDateFriendly(checkOut)}) for ${guestsCount} guest(s).`
       );
       scrollToSection('available-rooms-results');
-    }, 400);
+    } catch (error) {
+      setSearchNotification(error instanceof Error ? error.message : 'Unable to check availability.');
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   // Handle Room Selection for Booking
@@ -290,19 +301,31 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   };
 
   // Submit Booking
-  const handleBookingSubmit = (e: React.FormEvent) => {
+  const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRoom || !validateBookingForm()) {
       return;
     }
 
     setIsSubmittingBooking(true);
-
-    setTimeout(() => {
-      const refNumber = `HB-2026-${Math.floor(10000 + Math.random() * 90000)}`;
+    try {
+      const guest = await createGuest({
+        full_name: guestFullName.trim(),
+        phone: guestPhone.trim(),
+        email: guestEmail.trim(),
+      });
+      const booking = await createBooking({
+        guest: guest.id,
+        room: Number(selectedRoom.id),
+        check_in_date: checkIn,
+        check_out_date: checkOut,
+        number_of_guests: guestsCount,
+        booking_source: 'DIRECT',
+        advance_amount: 0,
+      });
       const newReservation: Reservation = {
-        id: `res-${Date.now()}`,
-        referenceNumber: refNumber,
+        id: String(booking.id),
+        referenceNumber: booking.booking_reference,
         roomId: selectedRoom.id,
         roomName: selectedRoom.name,
         guestName: guestFullName,
@@ -310,30 +333,22 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
         phone: guestPhone,
         checkIn,
         checkOut,
-        nights,
+        nights: booking.nights,
         guests: guestsCount,
         roomsCount,
-        totalPrice: estimatedTotal,
-        status: 'confirmed',
+        totalPrice: Number(booking.total_amount),
+        status: 'pending',
         specialRequests: specialRequests.trim() || undefined,
-        createdAt: new Date().toISOString(),
+        createdAt: booking.created_at,
       };
-
-      if (onConfirmReservation) {
-        onConfirmReservation(newReservation);
-      }
-
+      onConfirmReservation?.(newReservation);
+      setBookingSuccessData({ referenceNumber: booking.booking_reference, reservation: newReservation });
+      scrollToSection('booking-details-section');
+    } catch (error) {
+      setBookingErrors({ form: error instanceof Error ? error.message : 'Unable to create booking.' });
+    } finally {
       setIsSubmittingBooking(false);
-      setBookingSuccessData({
-        referenceNumber: refNumber,
-        reservation: newReservation,
-      });
-
-      // Scroll to success container
-      setTimeout(() => {
-        scrollToSection('booking-details-section');
-      }, 50);
-    }, 650);
+    }
   };
 
   // Validate Inquiry Form
@@ -361,48 +376,50 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   };
 
   // Submit Inquiry
-  const handleInquirySubmit = (e: React.FormEvent) => {
+  const handleInquirySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRoom || !validateInquiryForm()) {
       return;
     }
 
     setIsSubmittingInquiry(true);
-
-    setTimeout(() => {
-      const refNumber = `INQ-2026-${Math.floor(10000 + Math.random() * 90000)}`;
+    try {
       const finalMessage = `${inquirySubject ? `[Subject: ${inquirySubject}] ` : ''}${inquiryMessage}${
         showOptionalStayInfo && inquiryCheckIn
           ? ` (Preferred Stay: ${inquiryCheckIn} to ${inquiryCheckOut}, ${inquiryGuests} guests, Room: ${inquiryRoomType})`
           : ''
       }`;
-
-      if (onAddInquiry) {
-        onAddInquiry({
-          guestName: inquiryFullName,
-          email: inquiryEmail,
-          phone: inquiryPhone,
-          roomType: inquiryRoomType || selectedRoom.name,
-          checkIn: inquiryCheckIn || checkIn,
-          checkOut: inquiryCheckOut || checkOut,
-          guests: inquiryGuests,
-          status: 'pending',
-          message: finalMessage,
-        });
-      }
-
-      setIsSubmittingInquiry(false);
+      const inquiry = await createInquiry({
+        name: inquiryFullName.trim(),
+        check_in_date: inquiryCheckIn || checkIn,
+        check_out_date: inquiryCheckOut || checkOut,
+        number_of_guests: inquiryGuests,
+        message: `${inquiryEmail.trim()} | ${inquiryPhone.trim()} | ${finalMessage}`,
+        source: 'WEBSITE',
+      });
+      onAddInquiry?.({
+        guestName: inquiryFullName,
+        email: inquiryEmail,
+        phone: inquiryPhone,
+        roomType: inquiryRoomType || selectedRoom.name,
+        checkIn: inquiryCheckIn || checkIn,
+        checkOut: inquiryCheckOut || checkOut,
+        guests: inquiryGuests,
+        status: 'pending',
+        message: finalMessage,
+      });
       setInquirySuccessData({
-        referenceNumber: refNumber,
+        referenceNumber: `INQ-${inquiry.id}`,
         subject: inquirySubject || inquiryType,
         email: inquiryEmail,
         inquiryType,
       });
-
-      setTimeout(() => {
-        scrollToSection('inquiry-section-anchor');
-      }, 50);
-    }, 600);
+      scrollToSection('inquiry-section-anchor');
+    } catch (error) {
+      setInquiryErrors({ form: error instanceof Error ? error.message : 'Unable to send inquiry.' });
+    } finally {
+      setIsSubmittingInquiry(false);
+    }
   };
 
   // Copy reference number to clipboard
@@ -1014,6 +1031,11 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                 </div>
 
                 <form onSubmit={handleBookingSubmit} className="space-y-6">
+                  {bookingErrors.form && (
+                    <div className="rounded-[8px] border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      {bookingErrors.form}
+                    </div>
+                  )}
                   {/* Selected Room Pill Banner */}
                   <div className="p-4 rounded-[10px] bg-[#F8F7F4] border border-[#E5E7EB] flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -1409,6 +1431,11 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                 className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 sm:p-10 shadow-xs"
               >
                 <form onSubmit={handleInquirySubmit} className="space-y-6">
+                  {inquiryErrors.form && (
+                    <div className="rounded-[8px] border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      {inquiryErrors.form}
+                    </div>
+                  )}
                   {/* Personal Information Group */}
                   <div>
                     <h3 className="text-sm font-semibold text-[#12355B] uppercase tracking-wider mb-4 flex items-center gap-2">

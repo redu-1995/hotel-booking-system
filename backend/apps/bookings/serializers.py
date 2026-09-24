@@ -147,7 +147,8 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        created_by = self.context["request"].user
+        user = self.context["request"].user
+        created_by = user if user.is_authenticated and user.is_staff else None
         try:
             return Booking.objects.create(created_by=created_by, **validated_data)
         except DjangoValidationError as exc:

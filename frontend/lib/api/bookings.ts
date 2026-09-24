@@ -14,6 +14,7 @@ export type Booking = {
   advance_amount: string;
   nights: number;
   balance_due: string;
+  created_at: string;
 };
 
 export type BookingPayload = {

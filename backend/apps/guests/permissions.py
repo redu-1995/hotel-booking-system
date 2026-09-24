@@ -5,6 +5,8 @@ class IsGuestStaff(permissions.BasePermission):
     allowed_roles = {"ADMIN", "MANAGER", "RECEPTIONIST"}
 
     def has_permission(self, request, view):
+        if request.method == "POST" and view.action == "create":
+            return True
         user = request.user
         return bool(
             user.is_authenticated

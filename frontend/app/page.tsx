@@ -8,7 +8,6 @@ import { RoomDetailsModal } from '../components/rooms/RoomDetailsModal';
 import { WhyChooseUs } from '../components/home/WhyChooseUs';
 import { Facilities } from '../components/facilities/Facilities';
 import { InquirySection } from '../components/home/InquirySection';
-import { DirectBookingCTA } from '../components/home/DirectBookingCTA';
 import { Footer } from '../components/layout/Footer';
 import { BookingModal } from '../components/booking/BookingModal';
 import { DesignSystemModal } from '../components/home/DesignSystemModalProps';
@@ -23,8 +22,8 @@ import { NavPage } from '../components/layout/Header';
 import { homeAmenities, homeFacilities } from '../lib/home-data';
 
 export default function App() {
-  // Navigation state: starts on requested Direct Booking & Inquiries Page, easily toggled between Home, Rooms, About, Facilities, and Booking
-  const [currentPage, setCurrentPage] = useState<NavPage>('booking');
+  // Navigation state defaults to the home page so the landing experience opens on the primary journey.
+  const [currentPage, setCurrentPage] = useState<NavPage>('home');
 
   // Default dates: tomorrow to +3 days
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
@@ -56,6 +55,16 @@ export default function App() {
   };
 
   const handleSearchSubmit = () => {
+    if (!searchState.checkIn || !searchState.checkOut) {
+      setSearchResultBanner('Please choose both check-in and check-out dates.');
+      return;
+    }
+
+    if (new Date(searchState.checkOut) <= new Date(searchState.checkIn)) {
+      setSearchResultBanner('Check-out must be after check-in.');
+      return;
+    }
+
     setIsSearching(true);
     setSearchResultBanner(null);
 
@@ -67,7 +76,6 @@ export default function App() {
         } from ${searchState.checkIn} to ${searchState.checkOut}. Best direct rate applied!`
       );
 
-      // Scroll smoothly to the rooms section
       const roomsEl = document.getElementById('featured-rooms');
       if (roomsEl) {
         const offset = 80;
@@ -342,9 +350,6 @@ export default function App() {
 
         {/* Dedicated Direct Booking & Inquiry Management */}
         <InquirySection />
-
-        {/* 7. Direct Booking CTA Section */}
-        <DirectBookingCTA />
       </main>
 
       {/* 8. Footer */}

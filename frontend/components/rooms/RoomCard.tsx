@@ -73,7 +73,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
           </span>
           {(featuredBadge || room.isPopular) && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#D4A853] text-[#1F2937] shadow-xs">
-              ★ {featuredBadge || 'Most Popular'}
+              ★ {featuredBadge || 'Popular'}
             </span>
           )}
         </div>
@@ -115,20 +115,15 @@ export const RoomCard: React.FC<RoomCardProps> = ({
             {room.shortDescription}
           </p>
 
-          {/* Capacity and Bed Information */}
           <div className="flex flex-wrap items-center gap-3 py-3 border-y border-[#E5E7EB] text-xs sm:text-sm text-[#1F2937] mb-4">
             <div className="flex items-center gap-1.5 font-medium">
               <Users className="w-4 h-4 text-[#12355B]" />
-              <span>Up to {room.capacityGuests} {room.capacityGuests === 1 ? 'Guest' : 'Guests'}</span>
+              <span>Up to {room.capacityGuests}</span>
             </div>
             <div className="w-1 h-1 rounded-full bg-gray-300" />
             <div className="flex items-center gap-1.5 font-medium">
               <Bed className="w-4 h-4 text-[#12355B]" />
               <span>{room.bedType}</span>
-            </div>
-            <div className="w-1 h-1 rounded-full bg-gray-300 hidden sm:block" />
-            <div className="text-[#6B7280] hidden sm:block">
-              {room.sizeSqM} m²
             </div>
           </div>
 

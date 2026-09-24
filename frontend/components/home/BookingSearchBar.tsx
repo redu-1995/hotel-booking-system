@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { BookingSearchState } from '../../types/types';
 import { DatePickerInput, SelectDropdown } from '../ui/FormInputs';
 import { Button } from '../ui/Button';
-import { Search, Sparkles, ShieldCheck, Check } from 'lucide-react';
+import { Search, ShieldCheck, Check } from 'lucide-react';
 
 interface BookingSearchBarProps {
   searchState: BookingSearchState;
@@ -19,8 +19,7 @@ export const BookingSearchBar: React.FC<BookingSearchBarProps> = ({
   onSearchSubmit,
   isSearching = false,
 }) => {
-  const [promoCode, setPromoCode] = useState('');
-  const [showPromoInput, setShowPromoInput] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const guestOptions = [
     { value: 1, label: '1 Guest', sublabel: 'Solo' },
@@ -37,6 +36,18 @@ export const BookingSearchBar: React.FC<BookingSearchBarProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!searchState.checkIn || !searchState.checkOut) {
+      setSearchError('Please choose both check-in and check-out dates.');
+      return;
+    }
+
+    if (new Date(searchState.checkOut) <= new Date(searchState.checkIn)) {
+      setSearchError('Check-out must be after check-in.');
+      return;
+    }
+
+    setSearchError(null);
     onSearchSubmit();
   };
 
@@ -48,29 +59,18 @@ export const BookingSearchBar: React.FC<BookingSearchBarProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-[#E5E7EB]">
         <div className="flex items-center gap-2 text-sm font-semibold text-[#12355B]">
           <span className="w-2 h-2 rounded-full bg-[#D4A853]" />
-          <span>Direct Hotel Booking Engine</span>
-          <span className="hidden sm:inline-block text-xs font-normal text-[#6B7280]">
-            — Official Rates & Instant Confirmation
-          </span>
+          <span>Find Your Stay</span>
         </div>
 
         <div className="flex items-center gap-4 text-xs text-[#6B7280]">
           <span className="flex items-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5 text-[#16A34A]" />
-            Best Price Guarantee
+            Best direct rate
           </span>
           <span className="hidden md:flex items-center gap-1">
             <Check className="w-3.5 h-3.5 text-[#12355B]" />
-            Free Cancellation up to 24h
+            Flexible booking
           </span>
-          <button
-            type="button"
-            onClick={() => setShowPromoInput(!showPromoInput)}
-            className="text-[#12355B] font-medium hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            <Sparkles className="w-3 h-3 text-[#D4A853]" />
-            {showPromoInput ? 'Hide Promo' : 'Have a Promo Code?'}
-          </button>
         </div>
       </div>
 
@@ -115,19 +115,9 @@ export const BookingSearchBar: React.FC<BookingSearchBarProps> = ({
           />
         </div>
 
-        {/* Promo code drawer */}
-        {showPromoInput && (
-          <div className="pt-2 flex items-center gap-3 animate-in fade-in duration-200">
-            <input
-              type="text"
-              placeholder="Enter special promo code (e.g. DIRECT10)"
-              value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value)}
-              className="max-w-xs bg-white border border-[#E5E7EB] text-[#1F2937] placeholder-[#6B7280] text-sm rounded-[8px] py-2 px-3 focus:outline-none focus:border-[#12355B]"
-            />
-            <span className="text-xs text-[#16A34A] font-medium">
-              Direct bookings receive 10% auto-applied member credit
-            </span>
+        {searchError && (
+          <div className="rounded-[8px] border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-sm text-[#991B1B]" role="alert">
+            {searchError}
           </div>
         )}
 
