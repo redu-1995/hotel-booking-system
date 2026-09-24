@@ -6,6 +6,7 @@ import { Button } from '../ui/Button';
 
 interface FeaturedRoomsProps {
   rooms: Room[];
+  isLoading?: boolean;
   onViewDetails: (room: Room) => void;
   onBookRoom: (room: Room) => void;
   onOpenInquiry: () => void;
@@ -14,6 +15,7 @@ interface FeaturedRoomsProps {
 
 export const FeaturedRooms: React.FC<FeaturedRoomsProps> = ({
   rooms,
+  isLoading = false,
   onViewDetails,
   onBookRoom,
   onOpenInquiry,
@@ -89,7 +91,10 @@ export const FeaturedRooms: React.FC<FeaturedRoomsProps> = ({
 
       {/* 3 Room Cards in Responsive Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {filteredRooms.map((room) => (
+        {isLoading && [1, 2, 3].map((item) => (
+          <div key={`room-loading-${item}`} className="h-[520px] animate-pulse rounded-[12px] border border-[#E5E7EB] bg-white" />
+        ))}
+        {!isLoading && filteredRooms.map((room) => (
           <RoomCard
             key={room.id}
             room={room}
