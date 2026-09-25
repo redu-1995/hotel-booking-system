@@ -108,7 +108,7 @@ export const RoomDetailsModal: React.FC<RoomDetailsModalProps> = ({
     >
       <div
         id="room-details-modal"
-        className="relative w-full max-w-4xl bg-white rounded-[12px] shadow-2xl border border-[#E5E7EB] overflow-hidden my-4 sm:my-8 animate-in zoom-in-95 duration-200"
+        className="relative flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-white shadow-2xl my-3 sm:my-6 animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Clearly Visible Close Button */}
@@ -122,7 +122,7 @@ export const RoomDetailsModal: React.FC<RoomDetailsModalProps> = ({
         </button>
 
         {/* IMAGE GALLERY */}
-        <div className="relative aspect-[16/9] max-h-[380px] w-full bg-gray-900 overflow-hidden select-none">
+        <div className="relative h-[210px] max-h-[30vh] w-full shrink-0 overflow-hidden bg-gray-900 select-none sm:h-[250px] lg:h-[280px]">
           <img
             src={images[currentImageIndex]}
             alt={`${room.name} photo ${currentImageIndex + 1}`}
@@ -206,7 +206,7 @@ export const RoomDetailsModal: React.FC<RoomDetailsModalProps> = ({
         )}
 
         {/* Modal Body Content */}
-        <div className="p-5 sm:p-8 space-y-6 max-h-[50vh] overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8 space-y-6">
           {/* ROOM SPECIFICATIONS (Grid) */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-[8px] bg-[#F8F7F4] border border-[#E5E7EB]">
             <div>
@@ -227,7 +227,11 @@ export const RoomDetailsModal: React.FC<RoomDetailsModalProps> = ({
               <div className="text-xs text-[#6B7280] mb-1">Room Dimensions</div>
               <div className="flex items-center gap-1.5 font-medium text-sm text-[#12355B]">
                 <Maximize2 className="w-4 h-4 text-[#D4A853]" />
-                <span>{room.sizeSqM} m² ({Math.round(room.sizeSqM * 10.764)} sq ft)</span>
+                <span>
+                  {room.sizeSqM > 0
+                    ? `${room.sizeSqM} m² (${Math.round(room.sizeSqM * 10.764)} sq ft)`
+                    : 'Not specified'}
+                </span>
               </div>
             </div>
             <div>
@@ -321,7 +325,7 @@ export const RoomDetailsModal: React.FC<RoomDetailsModalProps> = ({
         </div>
 
         {/* MODAL FOOTER ACTIONS */}
-        <div className="p-4 sm:p-6 bg-[#F8F7F4] border-t border-[#E5E7EB] flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="shrink-0 p-4 sm:p-6 bg-[#F8F7F4] border-t border-[#E5E7EB] flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-center sm:text-left">
             <div className="text-xs text-[#6B7280]">Rate per room</div>
             <div className="text-xl sm:text-2xl font-serif font-bold text-[#12355B]">
