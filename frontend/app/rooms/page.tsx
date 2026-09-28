@@ -12,6 +12,7 @@ import { ROOMS_DATA } from '../../data/hotelData';
 import { Room, BookingSearchState, Reservation } from '../../types/types';
 import type { Room as ApiRoom } from '@/types';
 import { getRooms } from '@/lib/api/client';
+import { AvailableRoom, getAvailability } from '@/lib/api/bookings';
 import {
   SlidersHorizontal,
   RotateCcw,
@@ -38,6 +39,20 @@ interface RoomsPageProps {
 
 const roomImages = ROOMS_DATA.map((room) => room.image);
 
+function applyAvailability(rooms: Room[], availableRooms: AvailableRoom[]): Room[] {
+  const availableIds = new Set(availableRooms.map((room) => room.id));
+  const countsByType = new Map<number, number>();
+  availableRooms.forEach((room) => {
+    countsByType.set(room.room_type_id, (countsByType.get(room.room_type_id) ?? 0) + 1);
+  });
+
+  return rooms.map((room) => ({
+    ...room,
+    availability: availableIds.has(Number(room.id)) ? 'available' : 'unavailable',
+    availableRoomsLeft: countsByType.get(room.roomTypeId ?? -1) ?? 0,
+  }));
+}
+
 function toUiRoom(room: ApiRoom, index: number): Room {
   const roomType = room.room_type_details;
   const typeName = roomType?.name || `Room ${room.room_number}`;
@@ -47,12 +62,9 @@ function toUiRoom(room: ApiRoom, index: number): Room {
     : normalizedName.includes('deluxe')
       ? 'deluxe'
       : 'standard';
-  const availability: Room['availability'] = room.is_available
-    ? 'available'
-    : 'unavailable';
-
   return {
     id: String(room.id),
+    roomTypeId: roomType?.id,
     name: typeName,
     category,
     shortDescription: roomType?.description || `Room ${room.room_number} at The Grandview Hotel.`,
@@ -67,7 +79,7 @@ function toUiRoom(room: ApiRoom, index: number): Room {
     allAmenities: roomType?.amenities_list || [],
     rating: 0,
     reviewsCount: 0,
-    availability,
+    availability: 'unavailable',
     isPopular: index === 0,
   };
 }
@@ -104,19 +116,35 @@ export const RoomsPage: React.FC<RoomsPageProps> = ({
   // Modal states
   const [selectedRoomForDetails, setSelectedRoomForDetails] = useState<Room | null>(null);
   const [selectedRoomForBooking, setSelectedRoomForBooking] = useState<Room | null>(null);
-  const [rooms, setRooms] = useState<Room[]>(ROOMS_DATA);
+  const [rooms, setRooms] = useState<Room[]>([]);
 
   useEffect(() => {
     let isMounted = true;
-    getRooms().then((apiRooms) => {
-      if (isMounted && apiRooms.length > 0) {
-        setRooms(apiRooms.map(toUiRoom));
+    const loadRooms = async () => {
+      try {
+        const apiRooms = await getRooms();
+        if (!isMounted) return;
+        const catalog = apiRooms.map(toUiRoom);
+        setRooms(catalog);
+        if (initialSearchState) {
+          const availableRooms = await getAvailability(
+            initialSearchState.checkIn,
+            initialSearchState.checkOut,
+            initialSearchState.guests,
+          );
+          if (isMounted) setRooms(applyAvailability(catalog, availableRooms));
+        }
+      } catch (error) {
+        if (isMounted) {
+          setSearchNotification(error instanceof Error ? error.message : 'Unable to check availability.');
+        }
       }
-    });
+    };
+    void loadRooms();
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [initialSearchState]);
 
   const availableAmenityOptions = [
     'High-Speed Wi-Fi',
@@ -127,31 +155,28 @@ export const RoomsPage: React.FC<RoomsPageProps> = ({
 
   const handleSearchChange = (changes: Partial<BookingSearchState>) => {
     setSearchState((prev) => ({ ...prev, ...changes }));
+    setRooms((currentRooms) => currentRooms.map((room) => ({ ...room, availability: 'unavailable', availableRoomsLeft: 0 })));
   };
 
-  const handleSearchSubmit = () => {
+  const handleSearchSubmit = async () => {
     setIsSearching(true);
-    setTimeout(() => {
-      setIsSearching(false);
-      setSearchNotification(
-        `Availability updated for ${searchState.guests} guest${
-          searchState.guests > 1 ? 's' : ''
-        }, from ${searchState.checkIn} to ${searchState.checkOut}.`
+    setSearchNotification(null);
+    try {
+      const availableRooms = await getAvailability(
+        searchState.checkIn,
+        searchState.checkOut,
+        searchState.guests,
       );
-
-      // Smooth scroll down to rooms section
-      const listingEl = document.getElementById('room-listing-section');
-      if (listingEl) {
-        const offset = 90;
-        const bodyRect = document.body.getBoundingClientRect().top;
-        const elementRect = listingEl.getBoundingClientRect().top;
-        const elementPosition = elementRect - bodyRect;
-        window.scrollTo({
-          top: elementPosition - offset,
-          behavior: 'smooth',
-        });
-      }
-    }, 400);
+      setRooms((currentRooms) => applyAvailability(currentRooms, availableRooms));
+      setSearchNotification(
+        `Found ${availableRooms.length} available room${availableRooms.length === 1 ? '' : 's'} for ${searchState.guests} guest${searchState.guests === 1 ? '' : 's'}, from ${searchState.checkIn} to ${searchState.checkOut}.`
+      );
+      document.getElementById('room-listing-section')?.scrollIntoView({ behavior: 'smooth' });
+    } catch (error) {
+      setSearchNotification(error instanceof Error ? error.message : 'Unable to check availability.');
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const toggleAmenity = (amenity: string) => {

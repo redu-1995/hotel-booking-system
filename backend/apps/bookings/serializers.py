@@ -16,6 +16,7 @@ class GuestSummarySerializer(serializers.ModelSerializer):
 
 
 class RoomSummarySerializer(serializers.ModelSerializer):
+    room_type_id = serializers.IntegerField(read_only=True)
     room_type_name = serializers.CharField(source="room_type.name", read_only=True)
     max_guests = serializers.IntegerField(source="room_type.max_guests", read_only=True)
     base_price = serializers.DecimalField(
@@ -31,6 +32,7 @@ class RoomSummarySerializer(serializers.ModelSerializer):
             "id",
             "room_number",
             "status",
+            "room_type_id",
             "room_type_name",
             "max_guests",
             "base_price",

@@ -49,8 +49,17 @@ interface BookingInquiryPageProps {
   onNavigate: (page: NavPage) => void;
   onOpenDesignSystem?: () => void;
   initialRoomId?: string;
+  initialSearchState?: BookingSearchState;
   onConfirmReservation?: (reservation: Reservation) => void;
   onAddInquiry?: (inquiry: Omit<Inquiry, 'id' | 'referenceNumber' | 'createdAt'>) => void;
+}
+
+function markAvailableRooms(rooms: Room[], availableRoomIds: number[]): Room[] {
+  const availableIds = new Set(availableRoomIds);
+  return rooms.map((room) => ({
+    ...room,
+    availability: availableIds.has(Number(room.id)) ? 'available' : 'unavailable',
+  }));
 }
 
 function toUiRoom(room: ApiRoom): Room {
@@ -79,7 +88,7 @@ function toUiRoom(room: ApiRoom): Room {
     allAmenities: roomType?.amenities_list || [],
     rating: 0,
     reviewsCount: 0,
-    availability: room.is_available ? 'available' : 'unavailable',
+    availability: 'unavailable',
   };
 }
 
@@ -87,6 +96,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   onNavigate,
   onOpenDesignSystem,
   initialRoomId,
+  initialSearchState,
   onConfirmReservation,
   onAddInquiry,
 }) => {
@@ -95,10 +105,10 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   const threeDaysLater = new Date(Date.now() + 86400000 * 4).toISOString().split('T')[0];
 
   // 2. Search availability state
-  const [checkIn, setCheckIn] = useState<string>(tomorrow);
-  const [checkOut, setCheckOut] = useState<string>(threeDaysLater);
-  const [guestsCount, setGuestsCount] = useState<number>(2);
-  const [roomsCount, setRoomsCount] = useState<number>(1);
+  const [checkIn, setCheckIn] = useState<string>(initialSearchState?.checkIn ?? tomorrow);
+  const [checkOut, setCheckOut] = useState<string>(initialSearchState?.checkOut ?? threeDaysLater);
+  const [guestsCount, setGuestsCount] = useState<number>(initialSearchState?.guests ?? 2);
+  const [roomsCount, setRoomsCount] = useState<number>(initialSearchState?.rooms ?? 1);
   const [preferredCategory, setPreferredCategory] = useState<string>('all');
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [searchNotification, setSearchNotification] = useState<string | null>(null);
@@ -111,27 +121,47 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    getRooms().then((apiRooms) => {
-      if (!isMounted) return;
-      if (apiRooms.length === 0) {
-        setRoomsError('No rooms are currently configured in the hotel system.');
-        return;
+    const loadRoomsAndAvailability = async () => {
+      try {
+        const apiRooms = await getRooms();
+        if (!isMounted) return;
+        if (apiRooms.length === 0) {
+          setRoomsError('No rooms are currently configured in the hotel system.');
+          return;
+        }
+        const loadedRooms = apiRooms.map(toUiRoom);
+        setRooms(loadedRooms);
+        setSelectedRoom((currentRoom) => {
+          const matchingRoom = initialRoomId
+            ? loadedRooms.find((room) => room.id === initialRoomId)
+            : undefined;
+          return matchingRoom || loadedRooms.find((room) => room.category === 'deluxe') || loadedRooms[0] || currentRoom;
+        });
+        if (!initialSearchState) return;
+        try {
+          const availableRooms = await getAvailability(
+            initialSearchState.checkIn,
+            initialSearchState.checkOut,
+            initialSearchState.guests,
+          );
+          if (!isMounted) return;
+          const availableIds = availableRooms.map((room) => room.id);
+          setAvailableRoomIds(availableIds);
+          setRooms(markAvailableRooms(loadedRooms, availableIds));
+        } catch (error) {
+          if (isMounted) {
+            setSearchNotification(error instanceof Error ? error.message : 'Unable to check availability.');
+          }
+        }
+      } catch {
+        if (isMounted) setRoomsError('Unable to load rooms from the hotel system.');
       }
-      const loadedRooms = apiRooms.map(toUiRoom);
-      setRooms(loadedRooms);
-      setSelectedRoom((currentRoom) => {
-        const matchingRoom = initialRoomId
-          ? loadedRooms.find((room) => room.id === initialRoomId)
-          : undefined;
-        return matchingRoom || loadedRooms.find((room) => room.category === 'deluxe') || loadedRooms[0] || currentRoom;
-      });
-    }).catch(() => {
-      if (isMounted) setRoomsError('Unable to load rooms from the hotel system.');
-    });
+    };
+    void loadRoomsAndAvailability();
     return () => {
       isMounted = false;
     };
-  }, [initialRoomId]);
+  }, [initialRoomId, initialSearchState]);
 
   // Modal for Room Details
   const [roomDetailsModalRoom, setRoomDetailsModalRoom] = useState<Room | null>(null);
@@ -234,7 +264,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
         return false;
       }
       // Capacity filter
-      if (room.capacityGuests < guestsCount && guestsCount > 2) {
+      if (room.capacityGuests < guestsCount) {
         return false;
       }
       return true;
@@ -248,7 +278,9 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
     setSearchNotification(null);
     try {
       const availableRooms = await getAvailability(checkIn, checkOut, guestsCount);
-      setAvailableRoomIds(availableRooms.map((room) => room.id));
+      const availableIds = availableRooms.map((room) => room.id);
+      setAvailableRoomIds(availableIds);
+      setRooms((currentRooms) => markAvailableRooms(currentRooms, availableIds));
       setSearchNotification(
         `Found ${availableRooms.length} rooms matching your dates (${formatDateFriendly(checkIn)} - ${formatDateFriendly(checkOut)}) for ${guestsCount} guest(s).`
       );
@@ -304,6 +336,10 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRoom || !validateBookingForm()) {
+      return;
+    }
+    if (!availableRoomIds?.includes(Number(selectedRoom.id))) {
+      setBookingErrors({ form: 'Please check availability for this room and your selected dates before booking.' });
       return;
     }
 
@@ -611,7 +647,11 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                     label="Check-in Date"
                     value={checkIn}
                     min={new Date().toISOString().split('T')[0]}
-                    onChange={(e) => setCheckIn(e.target.value)}
+                    onChange={(e) => {
+                      setCheckIn(e.target.value);
+                      setAvailableRoomIds(null);
+                      setRooms((currentRooms) => markAvailableRooms(currentRooms, []));
+                    }}
                     required
                   />
                 </div>
@@ -623,7 +663,11 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                     label="Check-out Date"
                     value={checkOut}
                     min={checkIn || tomorrow}
-                    onChange={(e) => setCheckOut(e.target.value)}
+                    onChange={(e) => {
+                      setCheckOut(e.target.value);
+                      setAvailableRoomIds(null);
+                      setRooms((currentRooms) => markAvailableRooms(currentRooms, []));
+                    }}
                     required
                   />
                 </div>
@@ -635,7 +679,11 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                     label="Number of Guests"
                     leftIcon={<Users className="w-4 h-4" />}
                     value={guestsCount}
-                    onChange={(e) => setGuestsCount(Number(e.target.value))}
+                    onChange={(e) => {
+                      setGuestsCount(Number(e.target.value));
+                      setAvailableRoomIds(null);
+                      setRooms((currentRooms) => markAvailableRooms(currentRooms, []));
+                    }}
                     options={[
                       { value: 1, label: '1 Guest', sublabel: 'Solo' },
                       { value: 2, label: '2 Guests', sublabel: 'Standard' },
@@ -771,7 +819,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {availableRoomsList.map((room) => {
               const isCurrentSelection = selectedRoom.id === room.id;
-              const isUnavailable = room.availability === 'unavailable';
+              const isUnavailable = !availableRoomIds?.includes(Number(room.id));
 
               return (
                 <div

@@ -19,6 +19,7 @@ export interface Room {
   reviewsCount: number;
   availability: RoomAvailability;
   availableRoomsLeft?: number;
+  roomTypeId?: number;
   isPopular?: boolean;
 }
 

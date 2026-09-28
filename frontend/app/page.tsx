@@ -14,7 +14,7 @@ import { DesignSystemModal } from '../components/home/DesignSystemModalProps';
 import { ROOMS_DATA, INITIAL_INQUIRIES } from '../data/hotelData';
 import { Room, BookingSearchState, Inquiry, Reservation } from '../types/types';
 import type { RoomType } from '../types';
-import { CheckCircle2, Layers, Sparkles } from 'lucide-react';
+import { CheckCircle2, Layers } from 'lucide-react';
 import { RoomsPage } from './rooms/page';
 import { AboutPage } from './about/page';
 import { FacilitiesPage } from './facilities/page';
@@ -22,6 +22,7 @@ import { BookingInquiryPage } from './booking/page';
 import { NavPage } from '../components/layout/Header';
 import { homeAmenities, homeFacilities } from '../lib/home-data';
 import { getRoomTypes } from '../lib/api/rooms';
+import { AvailableRoom, getAvailability } from '../lib/api/bookings';
 
 const roomImages = [
   'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1200&q=80',
@@ -35,11 +36,9 @@ function roomTypeToCard(roomType: RoomType, index: number): Room {
     : roomType.name.toLowerCase().includes('deluxe')
       ? 'deluxe'
       : 'standard';
-  const availableRooms = roomType.rooms?.filter((room) => room.is_available) ?? [];
-  const hasInventoryData = Array.isArray(roomType.rooms);
-
   return {
-    id: String(availableRooms[0]?.id ?? `room-type-${roomType.id}`),
+    id: `room-type-${roomType.id}`,
+    roomTypeId: roomType.id,
     name: roomType.name,
     category,
     shortDescription: roomType.description || 'A comfortable room designed for a restful stay.',
@@ -54,10 +53,29 @@ function roomTypeToCard(roomType: RoomType, index: number): Room {
     allAmenities: roomType.amenities_list,
     rating: 0,
     reviewsCount: 0,
-    availability: !hasInventoryData || availableRooms.length > 0 ? 'available' : 'unavailable',
-    availableRoomsLeft: hasInventoryData ? availableRooms.length : undefined,
+    availability: 'unavailable',
+    availableRoomsLeft: 0,
     isPopular: index === 0,
   };
+}
+
+function applyAvailability(rooms: Room[], availableRooms: AvailableRoom[]): Room[] {
+  const roomsByType = new Map<number, AvailableRoom[]>();
+  availableRooms.forEach((room) => {
+    const typeRooms = roomsByType.get(room.room_type_id) ?? [];
+    typeRooms.push(room);
+    roomsByType.set(room.room_type_id, typeRooms);
+  });
+
+  return rooms.map((room) => {
+    const availableForType = roomsByType.get(room.roomTypeId ?? -1) ?? [];
+    return {
+      ...room,
+      id: String(availableForType[0]?.id ?? room.id),
+      availability: availableForType.length > 0 ? 'available' : 'unavailable',
+      availableRoomsLeft: availableForType.length,
+    };
+  });
 }
 
 export default function App() {
@@ -82,7 +100,7 @@ export default function App() {
   const [selectedRoomForDetails, setSelectedRoomForDetails] = useState<Room | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedRoomForBooking, setSelectedRoomForBooking] = useState<Room>(ROOMS_DATA[1]);
-  const [featuredRooms, setFeaturedRooms] = useState<Room[]>(ROOMS_DATA);
+  const [featuredRooms, setFeaturedRooms] = useState<Room[]>([]);
   const [isLoadingFeaturedRooms, setIsLoadingFeaturedRooms] = useState(true);
   const [isDesignSystemModalOpen, setIsDesignSystemModalOpen] = useState(false);
 
@@ -96,7 +114,11 @@ export default function App() {
         }
       })
       .catch(() => {
-        // Keep the local room catalog visible when the API is unavailable.
+        setFeaturedRooms(ROOMS_DATA.map((room) => ({
+          ...room,
+          availability: 'unavailable',
+          availableRoomsLeft: 0,
+        })));
       })
       .finally(() => {
         if (isMounted) setIsLoadingFeaturedRooms(false);
@@ -114,9 +136,14 @@ export default function App() {
   // Handlers
   const handleSearchChange = (changes: Partial<BookingSearchState>) => {
     setSearchState((prev) => ({ ...prev, ...changes }));
+    setFeaturedRooms((rooms) => rooms.map((room) => ({
+      ...room,
+      availability: 'unavailable',
+      availableRoomsLeft: 0,
+    })));
   };
 
-  const handleSearchSubmit = () => {
+  const handleSearchSubmit = async () => {
     if (!searchState.checkIn || !searchState.checkOut) {
       setSearchResultBanner('Please choose both check-in and check-out dates.');
       return;
@@ -129,27 +156,24 @@ export default function App() {
 
     setIsSearching(true);
     setSearchResultBanner(null);
-
-    setTimeout(() => {
-      setIsSearching(false);
-      setSearchResultBanner(
-        `Showing 3 room types available for ${searchState.guests} guest${
-          searchState.guests > 1 ? 's' : ''
-        } from ${searchState.checkIn} to ${searchState.checkOut}. Best direct rate applied!`
+    try {
+      const availableRooms = await getAvailability(
+        searchState.checkIn,
+        searchState.checkOut,
+        searchState.guests,
       );
-
-      const roomsEl = document.getElementById('featured-rooms');
-      if (roomsEl) {
-        const offset = 80;
-        const bodyRect = document.body.getBoundingClientRect().top;
-        const elementRect = roomsEl.getBoundingClientRect().top;
-        const elementPosition = elementRect - bodyRect;
-        window.scrollTo({
-          top: elementPosition - offset,
-          behavior: 'smooth',
-        });
-      }
-    }, 450);
+      setFeaturedRooms((rooms) => applyAvailability(rooms, availableRooms));
+      setSearchResultBanner(
+        `Found ${availableRooms.length} available room${availableRooms.length === 1 ? '' : 's'} for ${searchState.guests} guest${
+          searchState.guests > 1 ? 's' : ''
+        } from ${searchState.checkIn} to ${searchState.checkOut}.`
+      );
+      document.getElementById('featured-rooms')?.scrollIntoView({ behavior: 'smooth' });
+    } catch (error) {
+      setSearchResultBanner(error instanceof Error ? error.message : 'Unable to check availability.');
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const handleOpenRoomDetails = (room: Room) => {
@@ -209,6 +233,8 @@ export default function App() {
         <BookingInquiryPage
           onNavigate={(page) => setCurrentPage(page)}
           onOpenDesignSystem={() => setIsDesignSystemModalOpen(true)}
+          initialSearchState={searchState}
+          initialRoomId={selectedRoomForBooking.id}
           onConfirmReservation={handleConfirmReservation}
           onAddInquiry={handleAddInquiry}
         />
@@ -372,7 +398,7 @@ export default function App() {
         <Hero
           searchState={searchState}
           onSearchChange={handleSearchChange}
-          onSearchSubmit={() => setCurrentPage('rooms')}
+          onSearchSubmit={handleSearchSubmit}
           onExploreRoomsClick={() => setCurrentPage('rooms')}
           onBookYourStayClick={() => handleOpenBookingModal()}
           isSearching={isSearching}

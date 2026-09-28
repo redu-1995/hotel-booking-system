@@ -32,6 +32,7 @@ export type AvailableRoom = {
   id: number;
   room_number: string;
   status: string;
+  room_type_id: number;
   room_type_name: string;
   max_guests: number;
   base_price: string;

@@ -5,6 +5,7 @@ import { Room, BookingSearchState, Reservation } from '../../types/types';
 import { Button } from '../ui/Button';
 import { TextInput, DatePickerInput, SelectDropdown } from '../ui/FormInputs';
 import { StatusBadge } from '../ui/Badge';
+import { getAvailability } from '../../lib/api/bookings';
 import { X, CheckCircle2, ShieldCheck, CreditCard, Sparkles, Calendar, User, Bed, Mail, Phone, Lock } from 'lucide-react';
 
 interface BookingModalProps {
@@ -24,17 +25,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   searchState,
   onConfirmReservation,
 }) => {
-  if (!isOpen) return null;
-
   const [currentRoom, setCurrentRoom] = useState<Room>(initialRoom || allRooms[0]);
-  const [checkIn, setCheckIn] = useState<string>(
-    searchState.checkIn || new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0]
-  );
-  const [checkOut, setCheckOut] = useState<string>(
-    searchState.checkOut || new Date(Date.now() + 86400000 * 6).toISOString().split('T')[0]
-  );
-  const [guests, setGuests] = useState<number>(searchState.guests || 2);
-  const [roomsCount, setRoomsCount] = useState<number>(searchState.rooms || 1);
+  const [checkIn, setCheckIn] = useState<string>(searchState.checkIn);
+  const [checkOut, setCheckOut] = useState<string>(searchState.checkOut);
+  const [guests, setGuests] = useState<number>(searchState.guests);
+  const [roomsCount, setRoomsCount] = useState<number>(searchState.rooms);
 
   // Guest details
   const [guestName, setGuestName] = useState('');
@@ -42,7 +37,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [phone, setPhone] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [confirmedReservation, setConfirmedReservation] = useState<Reservation | null>(null);
+
+  if (!isOpen) return null;
 
   // Calculate nights
   const calculateNights = () => {
@@ -63,11 +61,16 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const taxes = Math.round((subtotal - directDiscount) * 0.08);
   const total = subtotal - directDiscount + taxes;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-
-    setTimeout(() => {
+    setAvailabilityError(null);
+    try {
+      const availableRooms = await getAvailability(checkIn, checkOut, guests);
+      if (!availableRooms.some((room) => room.id === Number(currentRoom.id))) {
+        setAvailabilityError('This room is not available for the selected dates and guest count.');
+        return;
+      }
       const newReservation: Reservation = {
         id: `res-${Date.now()}`,
         referenceNumber: `GV-DIR-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -89,8 +92,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
       onConfirmReservation(newReservation);
       setConfirmedReservation(newReservation);
+    } catch (error) {
+      setAvailabilityError(error instanceof Error ? error.message : 'Unable to check availability.');
+    } finally {
       setIsSubmitting(false);
-    }, 800);
+    }
   };
 
   return (
@@ -336,6 +342,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 <Lock className="w-3.5 h-3.5 text-[#16A34A]" />
                 <span>Pay directly upon arrival. No upfront deposit required for Standard & Deluxe rooms.</span>
               </div>
+
+              {availabilityError && (
+                <p className="text-sm text-[#991B1B]" role="alert">{availabilityError}</p>
+              )}
 
               {/* Action Buttons */}
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-3">
