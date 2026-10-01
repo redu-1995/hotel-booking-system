@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "apps.inquiries",
     "apps.bookings",
     "apps.payments",
+    "apps.notifications",
 ]
 
 MIDDLEWARE = [
@@ -182,3 +183,4 @@ MAILERS = {
 }
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="reservations@thegrandviewhotel.com")
 HOTEL_NOTIFICATION_EMAIL = config("HOTEL_NOTIFICATION_EMAIL", default="")
+HOTEL_CONTACT_PHONE = config("HOTEL_CONTACT_PHONE", default="+1 (800) 458-7200")

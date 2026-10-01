@@ -52,6 +52,11 @@ export type BookingPaymentDetails = {
   total_amount: string;
   amount_paid: string;
   payment_status: string | null;
+  payment_method: string | null;
+  transaction_reference: string | null;
+  provider_reference: string | null;
+  hotel_contact_email: string;
+  hotel_contact_phone: string;
   chapa_enabled: boolean;
   hold_expires_at: string | null;
 };

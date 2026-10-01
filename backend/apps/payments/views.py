@@ -192,7 +192,10 @@ class PaymentViewSet(viewsets.ModelViewSet):
 			)
 
 		callback_url = settings.CHAPA_CALLBACK_URL or request.build_absolute_uri(reverse("chapa-callback"))
-		return_url = f"{settings.FRONTEND_URL}/confirmation?{urlencode({'reference': booking.booking_reference, 'tx_ref': payment.transaction_reference})}"
+		return_url = (
+			f"{settings.FRONTEND_URL}/booking/confirmation/{booking.booking_reference}?"
+			f"{urlencode({'tx_ref': payment.transaction_reference})}"
+		)
 		try:
 			checkout_url = initialize_transaction(
 				payment,

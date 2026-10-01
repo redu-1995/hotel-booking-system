@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.bookings.models import Booking
 from apps.bookings.services import expire_booking_holds
+from apps.notifications.services import create_booking_confirmed_notifications
 
 from .chapa import ChapaError, verify_transaction
 from .models import Payment
@@ -36,8 +37,12 @@ def _send_booking_confirmation(booking, payment):
         f"Check-out: {booking.check_out_date}",
         f"Guests: {booking.number_of_guests}",
         f"Nights: {booking.nights}",
-        f"Amount paid: ETB {payment.amount}",
+        f"Amount paid: ETB {booking.total_paid}",
         "Payment: Completed",
+        f"Payment method: {payment.get_payment_method_display()}",
+        f"Transaction reference: {payment.transaction_reference or 'Not provided'}",
+        f"Provider reference: {payment.provider_reference or 'Not provided'}",
+        f"Hotel contact: {settings.DEFAULT_FROM_EMAIL} | {settings.HOTEL_CONTACT_PHONE}",
     ))
     try:
         send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, recipients, fail_silently=False)
@@ -79,11 +84,14 @@ def _record_verified_payment(payment_id, provider_reference=None, verified_by=No
             booking.booking_status = Booking.BookingStatus.CONFIRMED
             booking.hold_expires_at = None
             booking.save(update_fields=("booking_status", "hold_expires_at"))
+            create_booking_confirmed_notifications(booking)
             confirmed_booking = booking
             confirmed_payment = payment
 
     if confirmed_booking:
-        _send_booking_confirmation(confirmed_booking, confirmed_payment)
+        transaction.on_commit(
+            lambda: _send_booking_confirmation(confirmed_booking, confirmed_payment)
+        )
     return payment, booking
 
 

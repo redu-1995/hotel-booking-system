@@ -136,6 +136,10 @@ class BookingViewSet(viewsets.ModelViewSet):
 			)
 		except Booking.DoesNotExist:
 			return Response({"detail": "Booking not found."}, status=status.HTTP_404_NOT_FOUND)
+		latest_payment = booking.payments.order_by("-submitted_at").first()
+		completed_payment = booking.payments.filter(
+			status="COMPLETED"
+		).order_by("-verified_at", "-submitted_at").first()
 
 		return Response({
 			"booking_reference": booking.booking_reference,
@@ -149,7 +153,12 @@ class BookingViewSet(viewsets.ModelViewSet):
 			"room_subtotal": booking.total_amount,
 			"total_amount": booking.total_amount,
 			"amount_paid": booking.total_paid,
-			"payment_status": booking.payments.order_by("-submitted_at").values_list("status", flat=True).first(),
+			"payment_status": latest_payment.status if latest_payment else None,
+			"payment_method": completed_payment.get_payment_method_display() if completed_payment else None,
+			"transaction_reference": completed_payment.transaction_reference if completed_payment else None,
+			"provider_reference": completed_payment.provider_reference if completed_payment else None,
+			"hotel_contact_email": settings.DEFAULT_FROM_EMAIL,
+			"hotel_contact_phone": settings.HOTEL_CONTACT_PHONE,
 			"chapa_enabled": bool(settings.CHAPA_SECRET_KEY),
 			"hold_expires_at": booking.hold_expires_at,
 		})

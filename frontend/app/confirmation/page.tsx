@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import { Header } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
+import { ConfirmationActions } from '../../components/booking/ConfirmationActions';
 import { API_URL } from '../../lib/api/client';
 import type { BookingPaymentDetails } from '../../lib/api/bookings';
 
 type ConfirmationPageProps = {
+  params?: Promise<{ reference: string }>;
   searchParams: Promise<{ reference?: string | string[]; tx_ref?: string | string[] }>;
 };
 
@@ -20,11 +22,13 @@ function formatDate(value: string) {
   }).format(new Date(`${value}T12:00:00`));
 }
 
-export default async function ConfirmationPage({ searchParams }: ConfirmationPageProps) {
+export default async function ConfirmationPage({ params: routeParams, searchParams }: ConfirmationPageProps) {
   const params = await searchParams;
-  const reference = firstParam(params.reference);
+  const route = routeParams ? await routeParams : undefined;
+  const reference = route?.reference ?? firstParam(params.reference);
   const transactionReference = firstParam(params.tx_ref);
   let verificationError: string | null = null;
+  let paymentReferenceMatchesBooking = !transactionReference;
   let booking: BookingPaymentDetails | null = null;
 
   if (transactionReference) {
@@ -40,6 +44,10 @@ export default async function ConfirmationPage({ searchParams }: ConfirmationPag
         verificationError = typeof result.detail === 'string'
           ? result.detail
           : 'Unable to verify this payment yet.';
+      } else if (result.booking_reference !== reference) {
+        verificationError = 'This payment transaction does not match the booking reference.';
+      } else {
+        paymentReferenceMatchesBooking = true;
       }
     } catch {
       verificationError = 'The payment service is unavailable. Please refresh to check the latest status.';
@@ -61,7 +69,8 @@ export default async function ConfirmationPage({ searchParams }: ConfirmationPag
   }
 
   const isConfirmed = Boolean(
-    booking?.booking_status === 'CONFIRMED'
+    paymentReferenceMatchesBooking
+    && booking?.booking_status === 'CONFIRMED'
     && booking.payment_status === 'COMPLETED'
     && Number(booking.amount_paid) >= Number(booking.total_amount),
   );
@@ -76,9 +85,9 @@ export default async function ConfirmationPage({ searchParams }: ConfirmationPag
               <p className="text-xs font-semibold uppercase tracking-wider text-[#27644A]">Payment verified</p>
               <h1 className="mt-3 font-serif text-3xl font-bold text-[#12355B] sm:text-4xl">Booking Confirmed</h1>
               <p className="mt-3 text-sm leading-6 text-[#5B6064]">
-                Chapa confirmed your payment and the hotel booking is now confirmed.
+                Your payment has been verified and your stay is reserved at The Grandview Hotel &amp; Suites.
               </p>
-              <dl className="mt-8 divide-y divide-[#E5E1D9] border-y border-[#E5E1D9] text-sm">
+              <dl id="booking-details" className="mt-8 divide-y divide-[#E5E1D9] border-y border-[#E5E1D9] text-sm">
                 <div className="flex flex-wrap justify-between gap-2 py-4">
                   <dt className="text-[#6B7280]">Booking reference</dt>
                   <dd className="font-mono font-semibold text-[#12355B]">{booking.booking_reference}</dd>
@@ -107,12 +116,41 @@ export default async function ConfirmationPage({ searchParams }: ConfirmationPag
                 </div>
                 <div className="flex flex-wrap justify-between gap-2 py-4">
                   <dt className="text-[#6B7280]">Payment</dt>
-                  <dd className="font-semibold text-[#27644A]">Paid</dd>
+                  <dd className="font-semibold text-[#27644A]">Completed</dd>
+                </div>
+                {booking.payment_method && (
+                  <div className="flex flex-wrap justify-between gap-2 py-4">
+                    <dt className="text-[#6B7280]">Payment method</dt>
+                    <dd className="font-medium text-[#1F2937]">{booking.payment_method}</dd>
+                  </div>
+                )}
+                {booking.transaction_reference && (
+                  <div className="flex flex-wrap justify-between gap-2 py-4">
+                    <dt className="text-[#6B7280]">Transaction reference</dt>
+                    <dd className="max-w-full break-all text-right font-mono text-xs text-[#1F2937]">
+                      {booking.transaction_reference}
+                    </dd>
+                  </div>
+                )}
+                <div className="flex flex-wrap justify-between gap-2 py-4">
+                  <dt className="text-[#6B7280]">Hotel contact</dt>
+                  <dd className="text-right font-medium text-[#1F2937]">
+                    <a href={`mailto:${booking.hotel_contact_email}`} className="underline underline-offset-2">
+                      {booking.hotel_contact_email}
+                    </a>
+                    {booking.hotel_contact_phone && (
+                      <>
+                        <span className="mx-2 text-[#9CA3AF]">·</span>
+                        <a href={`tel:${booking.hotel_contact_phone}`} className="underline underline-offset-2">
+                          {booking.hotel_contact_phone}
+                        </a>
+                      </>
+                    )}
+                  </dd>
                 </div>
               </dl>
-              <p className="mt-5 text-sm text-[#5B6064]">
-                A booking confirmation has been sent to your booking email. Hotel staff have also been notified when a notification address is configured.
-              </p>
+              <p className="mt-5 text-sm text-[#5B6064]">Your booking confirmation and payment receipt are ready.</p>
+              <ConfirmationActions booking={booking} />
             </>
           ) : (
             <>
@@ -139,10 +177,7 @@ export default async function ConfirmationPage({ searchParams }: ConfirmationPag
             </>
           )}
 
-          <Link
-            href="/"
-            className="mt-8 inline-flex min-h-11 items-center justify-center bg-[#12355B] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#0D2948]"
-          >
+          <Link href="/" className="mt-8 inline-flex min-h-11 items-center justify-center bg-[#12355B] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#0D2948]">
             Return to hotel
           </Link>
         </section>
