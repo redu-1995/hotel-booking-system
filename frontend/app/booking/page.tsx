@@ -12,7 +12,6 @@ import { Room, BookingSearchState, Reservation, Inquiry } from '../../types/type
 import type { Room as ApiRoom } from '@/types';
 import { getRooms } from '@/lib/api/client';
 import { createBooking, getAvailability } from '@/lib/api/bookings';
-import { createGuest } from '@/lib/api/guests';
 import { createInquiry } from '@/lib/api/inquiries';
 import {
   Calendar,
@@ -346,13 +345,12 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
 
     setIsSubmittingBooking(true);
     try {
-      const guest = await createGuest({
-        full_name: guestFullName.trim(),
-        phone: guestPhone.trim(),
-        email: guestEmail.trim(),
-      });
       const booking = await createBooking({
-        guest: guest.id,
+        guest_info: {
+          full_name: guestFullName.trim(),
+          phone: guestPhone.trim(),
+          email: guestEmail.trim(),
+        },
         room: Number(selectedRoom.id),
         check_in_date: checkIn,
         check_out_date: checkOut,
@@ -1224,7 +1222,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                   </div>
                 </div>
 
-                {/* Primary Button: Continue to Payment */}
+                {/* Primary Button: Create Booking */}
                 <Button
                   id="confirm-booking-btn"
                   variant="primary"
@@ -1238,10 +1236,10 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                   {isSubmittingBooking ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Confirming Request...
+                      Creating Booking...
                     </span>
                   ) : (
-                    'Continue to Payment'
+                    'Create Booking'
                   )}
                 </Button>
 
@@ -1251,7 +1249,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                     <ShieldCheck className="w-3.5 h-3.5 text-[#D4A853]" />
                     <span>Payment and booking status</span>
                   </div>
-                  Continuing submits a room reservation request. Online payment is not available here; the hotel team will confirm your booking and arrange payment.
+                  Creating your booking places a 15-minute hold on this room. You will continue to payment after the booking is created.
                 </div>
               </div>
             </div>

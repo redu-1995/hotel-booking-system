@@ -180,3 +180,68 @@ class AvailabilityTests(APITestCase):
 		self.assertEqual(payment_details.data["room_subtotal"], Decimal("200.00"))
 		self.assertEqual(payment_details.data["total_amount"], Decimal("200.00"))
 		self.assertNotIn("guest", payment_details.data)
+
+	def test_public_booking_creates_guest_and_links_new_guest(self):
+		response = self.client.post(
+			"/api/bookings/",
+			{
+				"guest_info": {
+					"full_name": "New Booking Guest",
+					"phone": "+1 (415) 555-0123",
+					"email": "NEW.GUEST@example.com",
+				},
+				"room": self.first_room.id,
+				"check_in_date": self.check_in.isoformat(),
+				"check_out_date": self.check_out.isoformat(),
+				"number_of_guests": 2,
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 201, response.data)
+		guest = Guest.objects.get(email="new.guest@example.com")
+		self.assertEqual(guest.full_name, "New Booking Guest")
+		self.assertEqual(guest.phone, "+14155550123")
+		self.assertEqual(response.data["guest"], guest.id)
+		self.assertEqual(response.data["booking_status"], Booking.BookingStatus.HOLD)
+
+	def test_public_booking_reuses_existing_guest_by_email_or_phone(self):
+		guest_count = Guest.objects.count()
+		response = self.client.post(
+			"/api/bookings/",
+			{
+				"guest_info": {
+					"full_name": "Another Name",
+					"phone": "+14155550123",
+					"email": "GUEST@example.com",
+				},
+				"room": self.first_room.id,
+				"check_in_date": self.check_in.isoformat(),
+				"check_out_date": self.check_out.isoformat(),
+				"number_of_guests": 2,
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertEqual(response.data["guest"], self.guest.id)
+		self.assertEqual(Guest.objects.count(), guest_count)
+
+		phone_match = self.client.post(
+			"/api/bookings/",
+			{
+				"guest_info": {
+					"full_name": "Updated Contact Name",
+					"phone": "+10000000000",
+					"email": "different@example.com",
+				},
+				"room": self.second_room.id,
+				"check_in_date": self.check_in.isoformat(),
+				"check_out_date": self.check_out.isoformat(),
+				"number_of_guests": 2,
+			},
+			format="json",
+		)
+		self.assertEqual(phone_match.status_code, 201, phone_match.data)
+		self.assertEqual(phone_match.data["guest"], self.guest.id)
+		self.assertEqual(Guest.objects.count(), guest_count)

@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.guests.models import Guest
+from apps.guests.serializers import GuestSerializer
 from apps.rooms.models import Room
 
 from .services import expire_booking_holds
@@ -97,10 +98,17 @@ class BookingSerializer(serializers.ModelSerializer):
 
 
 class BookingCreateSerializer(serializers.ModelSerializer):
+    guest = serializers.PrimaryKeyRelatedField(
+        queryset=Guest.objects.all(),
+        required=False,
+    )
+    guest_info = GuestSerializer(write_only=True, required=False)
+
     class Meta:
         model = Booking
         fields = (
             "guest",
+            "guest_info",
             "room",
             "check_in_date",
             "check_out_date",
@@ -110,6 +118,14 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         )
 
     def validate(self, attrs):
+        if self.instance is None and not attrs.get("guest") and not attrs.get("guest_info"):
+            raise serializers.ValidationError(
+                {"guest_info": "Guest contact details are required to create a booking."}
+            )
+        if attrs.get("guest") and attrs.get("guest_info"):
+            raise serializers.ValidationError(
+                {"guest_info": "Provide either a guest ID or guest contact details, not both."}
+            )
         check_in = attrs.get("check_in_date", getattr(self.instance, "check_in_date", None))
         check_out = attrs.get("check_out_date", getattr(self.instance, "check_out_date", None))
         if check_out <= check_in:
@@ -163,9 +179,28 @@ class BookingCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context["request"].user
         created_by = user if user.is_authenticated and user.is_staff else None
+        guest_info = validated_data.pop("guest_info", None)
         try:
             with transaction.atomic():
                 expire_booking_holds()
+                if guest_info:
+                    guest_filter = Q(phone=guest_info["phone"])
+                    if guest_info.get("email"):
+                        guest_filter |= Q(email__iexact=guest_info["email"])
+                    guest_matches = Guest.objects.select_for_update().filter(
+                        guest_filter
+                    ).order_by("pk")[:2]
+                    matches = list(guest_matches)
+                    if len(matches) > 1:
+                        raise serializers.ValidationError({
+                            "guest_info": (
+                                "The provided phone and email belong to different guest records. "
+                                "Please contact the hotel to resolve the guest profile."
+                            )
+                        })
+                    guest = matches[0] if matches else Guest.objects.create(**guest_info)
+                    validated_data["guest"] = guest
+
                 room = Room.objects.select_for_update().select_related("room_type").get(
                     pk=validated_data["room"].pk
                 )
@@ -209,6 +244,7 @@ class BookingCreateSerializer(serializers.ModelSerializer):
 
 class BookingUpdateSerializer(BookingCreateSerializer):
     class Meta(BookingCreateSerializer.Meta):
+        fields = tuple(field for field in BookingCreateSerializer.Meta.fields if field != "guest_info")
         extra_kwargs = {
             field: {"required": False}
             for field in BookingCreateSerializer.Meta.fields

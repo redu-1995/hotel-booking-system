@@ -18,8 +18,13 @@ export type Booking = {
   created_at: string;
 };
 
-export type BookingPayload = {
-  guest: number;
+export type GuestRegistrationPayload = {
+  full_name: string;
+  phone: string;
+  email?: string | null;
+};
+
+type BookingFields = {
   room: number;
   check_in_date: string;
   check_out_date: string;
@@ -28,6 +33,11 @@ export type BookingPayload = {
   hold_expires_at?: string | null;
   advance_amount?: string | number;
 };
+
+export type BookingPayload = BookingFields & (
+  | { guest: number; guest_info?: never }
+  | { guest_info: GuestRegistrationPayload; guest?: never }
+);
 
 export type AvailableRoom = {
   id: number;
