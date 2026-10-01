@@ -15,6 +15,7 @@ class Payment(models.Model):
         BANK_TRANSFER = "BANK_TRANSFER", "Bank Transfer"
         STRIPE = "STRIPE", "Stripe"
         PAYPAL = "PAYPAL", "PayPal"
+        CHAPA = "CHAPA", "Chapa"
 
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -37,9 +38,11 @@ class Payment(models.Model):
         max_length=100,
         blank=True,
         null=True,
-        db_index=True,
+        unique=True,
         help_text="Payment gateway transaction ID or receipt #",
     )
+    provider_reference = models.CharField(max_length=100, blank=True, null=True)
+    provider_checkout_url = models.URLField(max_length=1000, blank=True, null=True)
     payment_method = models.CharField(
         max_length=50,
         choices=PaymentMethod.choices,
@@ -48,7 +51,7 @@ class Payment(models.Model):
     status = models.CharField(
         max_length=50,
         choices=Status.choices,
-        default=Status.COMPLETED,
+        default=Status.PENDING,
     )
     submitted_at = models.DateTimeField(auto_now_add=True)
     verified_by = models.ForeignKey(

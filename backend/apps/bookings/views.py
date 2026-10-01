@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.db.models import Q
+from django.conf import settings
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -16,6 +17,7 @@ from .serializers import (
 	BookingUpdateSerializer,
 	RoomSummarySerializer,
 )
+from .services import expire_booking_holds
 
 
 class BookingViewSet(viewsets.ModelViewSet):
@@ -74,6 +76,7 @@ class BookingViewSet(viewsets.ModelViewSet):
 
 	@action(detail=False, methods=["get"], permission_classes=[permissions.AllowAny])
 	def availability(self, request):
+		expire_booking_holds()
 		check_in = request.query_params.get("check_in_date")
 		check_out = request.query_params.get("check_out_date")
 		guests = request.query_params.get("number_of_guests", "1")
@@ -113,13 +116,57 @@ class BookingViewSet(viewsets.ModelViewSet):
 		).exclude(id__in=booked_room_ids).select_related("room_type")
 		return Response(RoomSummarySerializer(rooms, many=True).data)
 
+	@action(
+		detail=False,
+		methods=["get"],
+		permission_classes=[permissions.AllowAny],
+		url_path="payment-details",
+	)
+	def payment_details(self, request):
+		expire_booking_holds()
+		reference = request.query_params.get("booking_reference")
+		if not reference:
+			return Response(
+				{"detail": "booking_reference is required."},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
+		try:
+			booking = Booking.objects.select_related("room__room_type").get(
+				booking_reference=reference
+			)
+		except Booking.DoesNotExist:
+			return Response({"detail": "Booking not found."}, status=status.HTTP_404_NOT_FOUND)
+
+		return Response({
+			"booking_reference": booking.booking_reference,
+			"booking_status": booking.booking_status,
+			"room_name": booking.room.room_type.name,
+			"check_in_date": booking.check_in_date,
+			"check_out_date": booking.check_out_date,
+			"nights": booking.nights,
+			"number_of_guests": booking.number_of_guests,
+			"room_rate": booking.room.room_type.base_price,
+			"room_subtotal": booking.total_amount,
+			"total_amount": booking.total_amount,
+			"amount_paid": booking.total_paid,
+			"payment_status": booking.payments.order_by("-submitted_at").values_list("status", flat=True).first(),
+			"chapa_enabled": bool(settings.CHAPA_SECRET_KEY),
+			"hold_expires_at": booking.hold_expires_at,
+		})
+
 	@action(detail=True, methods=["post"])
 	def confirm(self, request, pk=None):
 		booking = self.get_object()
 		if booking.booking_status != Booking.BookingStatus.HOLD:
 			return Response({"detail": "Only held bookings can be confirmed."}, status=400)
+		if not booking.is_fully_paid:
+			return Response(
+				{"detail": "A booking can only be confirmed after full payment is verified."},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
 		booking.booking_status = Booking.BookingStatus.CONFIRMED
-		booking.save(update_fields=("booking_status",))
+		booking.hold_expires_at = None
+		booking.save(update_fields=("booking_status", "hold_expires_at"))
 		return Response(BookingSerializer(booking).data)
 
 	@action(detail=True, methods=["post"])

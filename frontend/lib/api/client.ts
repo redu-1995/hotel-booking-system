@@ -6,7 +6,19 @@ type RequestOptions = Omit<RequestInit, "body"> & { body?: unknown };
 
 export class ApiError extends Error {
   constructor(public readonly status: number, public readonly details: unknown) {
-    super(`API request failed with status ${status}`);
+    const detail = typeof details === "object" && details !== null && "detail" in details
+      ? (details as { detail: unknown }).detail
+      : undefined;
+    const fieldError = typeof details === "object" && details !== null
+      ? Object.values(details).flat().find((value) => typeof value === "string")
+      : undefined;
+    super(
+      typeof detail === "string"
+        ? detail
+        : typeof fieldError === "string"
+          ? fieldError
+          : `API request failed with status ${status}`,
+    );
     this.name = "ApiError";
   }
 }

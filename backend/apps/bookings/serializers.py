@@ -1,11 +1,16 @@
 from decimal import Decimal
+from datetime import timedelta
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.guests.models import Guest
 from apps.rooms.models import Room
 
+from .services import expire_booking_holds
 from .models import Booking
 
 
@@ -101,7 +106,6 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             "check_out_date",
             "number_of_guests",
             "booking_source",
-            "hold_expires_at",
             "advance_amount",
         )
 
@@ -111,6 +115,10 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         if check_out <= check_in:
             raise serializers.ValidationError(
                 {"check_out_date": "Check-out date must be strictly after check-in date."}
+            )
+        if check_in < timezone.localdate():
+            raise serializers.ValidationError(
+                {"check_in_date": "Check-in date cannot be in the past."}
             )
 
         room = attrs.get("room", getattr(self.instance, "room", None))
@@ -122,6 +130,10 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             "number_of_guests",
             getattr(self.instance, "number_of_guests", 1),
         )
+        if number_of_guests < 1:
+            raise serializers.ValidationError(
+                {"number_of_guests": "At least one guest is required."}
+            )
         if number_of_guests > room.room_type.max_guests:
             raise serializers.ValidationError(
                 {
@@ -152,7 +164,45 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         created_by = user if user.is_authenticated and user.is_staff else None
         try:
-            return Booking.objects.create(created_by=created_by, **validated_data)
+            with transaction.atomic():
+                expire_booking_holds()
+                room = Room.objects.select_for_update().select_related("room_type").get(
+                    pk=validated_data["room"].pk
+                )
+                if room.status != Room.Status.AVAILABLE:
+                    raise serializers.ValidationError(
+                        {"room": "This room is not operationally available."}
+                    )
+
+                now = timezone.now()
+                active_bookings = Booking.objects.filter(
+                    room=room,
+                    check_in_date__lt=validated_data["check_out_date"],
+                    check_out_date__gt=validated_data["check_in_date"],
+                ).filter(
+                    Q(booking_status__in=(
+                        Booking.BookingStatus.CONFIRMED,
+                        Booking.BookingStatus.CHECKED_IN,
+                    ))
+                    | Q(
+                        booking_status=Booking.BookingStatus.HOLD,
+                        hold_expires_at__gt=now,
+                    )
+                    | Q(
+                        booking_status=Booking.BookingStatus.HOLD,
+                        hold_expires_at__isnull=True,
+                    )
+                )
+                if active_bookings.exists():
+                    raise serializers.ValidationError(
+                        {"room": "This room is no longer available for the selected dates."}
+                    )
+
+                validated_data["room"] = room
+                validated_data["hold_expires_at"] = now + timedelta(minutes=15)
+                validated_data["booking_status"] = Booking.BookingStatus.HOLD
+                validated_data["booking_source"] = Booking.BookingSource.DIRECT
+                return Booking.objects.create(created_by=created_by, **validated_data)
         except DjangoValidationError as exc:
             raise serializers.ValidationError(exc.message_dict if hasattr(exc, "message_dict") else exc.messages)
 

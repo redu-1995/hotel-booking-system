@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
+from django.utils import timezone
 
 
 def generate_booking_reference() -> str:
@@ -109,12 +111,14 @@ class Booking(models.Model):
 
         # 3. Check overlapping bookings for the same room
         if self.room_id and self.check_in_date and self.check_out_date:
-            active_statuses = [self.BookingStatus.HOLD, self.BookingStatus.CONFIRMED, self.BookingStatus.CHECKED_IN]
             overlap = Booking.objects.filter(
                 room=self.room,
-                booking_status__in=active_statuses,
                 check_in_date__lt=self.check_out_date,
                 check_out_date__gt=self.check_in_date,
+            ).filter(
+                Q(booking_status__in=(self.BookingStatus.CONFIRMED, self.BookingStatus.CHECKED_IN))
+                | Q(booking_status=self.BookingStatus.HOLD, hold_expires_at__gt=timezone.now())
+                | Q(booking_status=self.BookingStatus.HOLD, hold_expires_at__isnull=True)
             )
             if self.pk:
                 overlap = overlap.exclude(pk=self.pk)

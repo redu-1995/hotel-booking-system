@@ -29,7 +29,6 @@ import {
   ArrowRight,
   ChevronRight,
   Info,
-  Building2,
   Check,
   Copy,
   CalendarCheck,
@@ -40,7 +39,6 @@ import {
   SlidersHorizontal,
   ChevronDown,
   ChevronUp,
-  Tag,
   Search,
   CheckCheck
 } from 'lucide-react';
@@ -100,6 +98,8 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   onConfirmReservation,
   onAddInquiry,
 }) => {
+  const router = useRouter();
+
   // 1. Default dates setup (Tomorrow and 3 days later)
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
   const threeDaysLater = new Date(Date.now() + 86400000 * 4).toISOString().split('T')[0];
@@ -108,7 +108,6 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   const [checkIn, setCheckIn] = useState<string>(initialSearchState?.checkIn ?? tomorrow);
   const [checkOut, setCheckOut] = useState<string>(initialSearchState?.checkOut ?? threeDaysLater);
   const [guestsCount, setGuestsCount] = useState<number>(initialSearchState?.guests ?? 2);
-  const [roomsCount, setRoomsCount] = useState<number>(initialSearchState?.rooms ?? 1);
   const [preferredCategory, setPreferredCategory] = useState<string>('all');
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [searchNotification, setSearchNotification] = useState<string | null>(null);
@@ -220,10 +219,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   };
 
   const nights = calculateNights();
-  const subtotal = selectedRoom ? selectedRoom.pricePerNight * nights * roomsCount : 0;
-  const directDiscount = Math.round(subtotal * 0.1); // 10% direct booking benefit
-  const taxes = Math.round((subtotal - directDiscount) * 0.08); // 8% local hospitality tax
-  const estimatedTotal = subtotal - directDiscount + taxes;
+  const subtotal = selectedRoom ? selectedRoom.pricePerNight * nights : 0;
 
   // Format date helper: "12 June 2026"
   const formatDateFriendly = (dateStr: string) => {
@@ -321,11 +317,16 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
 
     if (!checkIn) {
       errors.checkIn = 'Please select a check-in date.';
+    } else if (new Date(`${checkIn}T00:00:00`) < new Date(new Date().toDateString())) {
+      errors.checkIn = 'Check-in date cannot be in the past.';
     }
     if (!checkOut) {
       errors.checkOut = 'Please select a check-out date.';
     } else if (checkIn && new Date(checkOut) <= new Date(checkIn)) {
       errors.checkOut = 'Check-out date must be after check-in date.';
+    }
+    if (selectedRoom && guestsCount > selectedRoom.capacityGuests) {
+      errors.numberOfGuests = `This room allows up to ${selectedRoom.capacityGuests} guests.`;
     }
 
     setBookingErrors(errors);
@@ -371,15 +372,14 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
         checkOut,
         nights: booking.nights,
         guests: guestsCount,
-        roomsCount,
+        roomsCount: 1,
         totalPrice: Number(booking.total_amount),
         status: 'pending',
         specialRequests: specialRequests.trim() || undefined,
         createdAt: booking.created_at,
       };
-      onConfirmReservation?.(newReservation);
       setBookingSuccessData({ referenceNumber: booking.booking_reference, reservation: newReservation });
-      scrollToSection('booking-details-section');
+      router.push(`/payment?reference=${encodeURIComponent(booking.booking_reference)}`);
     } catch (error) {
       setBookingErrors({ form: error instanceof Error ? error.message : 'Unable to create booking.' });
     } finally {
@@ -639,7 +639,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
 
             {/* Booking Form Grid */}
             <form onSubmit={handleCheckAvailability} className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Check-in Date */}
                 <div>
                   <DatePickerInput
@@ -694,23 +694,6 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                   />
                 </div>
 
-                {/* Number of Rooms */}
-                <div>
-                  <SelectDropdown
-                    id="booking-rooms-selector"
-                    label="Number of Rooms"
-                    leftIcon={<Building2 className="w-4 h-4" />}
-                    value={roomsCount}
-                    onChange={(e) => setRoomsCount(Number(e.target.value))}
-                    options={[
-                      { value: 1, label: '1 Room' },
-                      { value: 2, label: '2 Rooms' },
-                      { value: 3, label: '3 Rooms' },
-                      { value: 4, label: '4+ Rooms (Group)' },
-                    ]}
-                  />
-                </div>
-
                 {/* Preferred Room Type (optional) */}
                 <div>
                   <SelectDropdown
@@ -736,8 +719,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                   <Info className="w-4 h-4 text-[#12355B]" />
                   <span>
                     Selected stay: <strong className="text-[#1F2937]">{nights} night(s)</strong>,{' '}
-                    <strong className="text-[#1F2937]">{guestsCount} guest(s)</strong> in{' '}
-                    <strong className="text-[#1F2937]">{roomsCount} room(s)</strong>
+                    <strong className="text-[#1F2937">{guestsCount} guest(s)</strong>
                   </span>
                 </div>
 
@@ -797,7 +779,9 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                 Available Rooms
               </h2>
               <p className="text-sm text-[#6B7280]">
-                Showing {availableRoomsList.length} rooms available for your requested dates.
+                {availableRoomIds
+                  ? `${availableRoomIds.length} rooms available for your dates. ${availableRoomsList.length} room options shown.`
+                  : 'Check availability to see which rooms can be booked for your dates.'}
               </p>
             </div>
 
@@ -970,16 +954,16 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                 <CheckCircle2 className="w-9 h-9" />
               </div>
 
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#DCFCE7] text-[#15803D] text-xs font-semibold mb-3">
-                <StatusBadge status="confirmed" />
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEF3C7] text-[#92400E] text-xs font-semibold mb-3">
+                <StatusBadge status="pending" />
               </div>
 
               <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#12355B] mb-2">
-                Booking Request Submitted Successfully
+                Room Held While Payment Is Arranged
               </h2>
 
               <p className="text-sm sm:text-base text-[#6B7280] max-w-xl mx-auto mb-6">
-                Thank you for choosing our hotel. We will review your booking and contact you shortly.
+                Your reservation is on hold, not confirmed. Payment must be verified before the booking is confirmed.
               </p>
 
               {/* Reference Box */}
@@ -1067,53 +1051,63 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                 <div className="mb-6">
                   <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-[#D4A853] font-bold mb-1">
                     <CalendarCheck className="w-4 h-4" />
-                    <span>Step 3: Guest & Stay Details</span>
+                    <span>Step 3: Stay and Guest Information</span>
                   </div>
                   <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#12355B] mb-2">
                     Complete Your Booking
                   </h2>
                   <p className="text-sm text-[#6B7280]">
-                    Please provide your contact details to reserve{' '}
+                    Review your stay and add the guest contact details for{' '}
                     <strong className="text-[#12355B]">{selectedRoom.name}</strong>.
                   </p>
                 </div>
 
-                <form onSubmit={handleBookingSubmit} className="space-y-6">
+                <form id="booking-guest-form" onSubmit={handleBookingSubmit} className="space-y-6">
                   {bookingErrors.form && (
                     <div className="rounded-[8px] border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                       {bookingErrors.form}
                     </div>
                   )}
-                  {/* Selected Room Pill Banner */}
-                  <div className="p-4 rounded-[10px] bg-[#F8F7F4] border border-[#E5E7EB] flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-[8px] border border-[#E5E7EB] bg-white text-center text-[10px] font-semibold text-[#12355B]">
-                        {selectedRoom.name}
-                      </div>
-                      <div>
-                        <div className="text-xs text-[#6B7280]">Selected Room</div>
-                        <div className="font-serif font-bold text-[#12355B] text-base">
-                          {selectedRoom.name}
-                        </div>
-                        <div className="text-xs text-[#12355B] font-semibold">
-                          ETB {selectedRoom.pricePerNight.toLocaleString()} / night
-                        </div>
-                      </div>
+                  {bookingErrors.numberOfGuests && (
+                    <div className="rounded-[8px] border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
+                      {bookingErrors.numberOfGuests}
                     </div>
-
+                  )}
+                  <section aria-labelledby="stay-information-heading" className="rounded-[8px] border border-[#E5E7EB] p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 id="stay-information-heading" className="text-sm font-semibold text-[#12355B] uppercase tracking-wider mb-3">
+                          A. Stay Information
+                        </h3>
+                        <p className="font-serif text-xl font-bold text-[#12355B]">{selectedRoom.name}</p>
+                        <p className="mt-1 text-sm text-[#4B5563]">
+                          {formatDateFriendly(checkIn)} to {formatDateFriendly(checkOut)}
+                        </p>
+                        <p className="mt-2 text-xs text-[#6B7280]">
+                          {nights} {nights === 1 ? 'night' : 'nights'} · {guestsCount} {guestsCount === 1 ? 'guest' : 'guests'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => scrollToSection('direct-booking-section')}
+                        className="shrink-0 text-xs text-[#2563EB] hover:underline font-medium"
+                      >
+                        Change stay
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={() => scrollToSection('available-rooms-results')}
-                      className="text-xs text-[#2563EB] hover:underline font-medium"
+                      className="mt-3 text-xs text-[#2563EB] hover:underline font-medium"
                     >
-                      Change Room
+                      Change room
                     </button>
-                  </div>
+                  </section>
 
                   {/* Personal Information Group */}
                   <div>
                     <h3 className="text-sm font-semibold text-[#12355B] uppercase tracking-wider mb-3">
-                      Guest Information
+                      B. Guest Information
                     </h3>
                     <div className="space-y-4">
                       {/* Full Name */}
@@ -1129,25 +1123,6 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                           }
                         }}
                         error={bookingErrors.guestFullName}
-                        required
-                      />
-
-                      {/* Email Address */}
-                      <TextInput
-                        id="booking-guest-email"
-                        type="email"
-                        label="Email Address"
-                        placeholder="e.g., almaz@example.com"
-                        leftIcon={<Mail className="w-4 h-4" />}
-                        value={guestEmail}
-                        onChange={(e) => {
-                          setGuestEmail(e.target.value);
-                          if (bookingErrors.guestEmail) {
-                            setBookingErrors((prev) => ({ ...prev, guestEmail: '' }));
-                          }
-                        }}
-                        error={bookingErrors.guestEmail}
-                        helperText="Booking confirmation and e-receipt will be sent to this address."
                         required
                       />
 
@@ -1169,85 +1144,39 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                         helperText="Used by hotel concierge for arrival coordination."
                         required
                       />
+
+                      {/* Email Address */}
+                      <TextInput
+                        id="booking-guest-email"
+                        type="email"
+                        label="Email Address"
+                        placeholder="e.g., almaz@example.com"
+                        leftIcon={<Mail className="w-4 h-4" />}
+                        value={guestEmail}
+                        onChange={(e) => {
+                          setGuestEmail(e.target.value);
+                          if (bookingErrors.guestEmail) {
+                            setBookingErrors((prev) => ({ ...prev, guestEmail: '' }));
+                          }
+                        }}
+                        error={bookingErrors.guestEmail}
+                        helperText="Booking confirmation and e-receipt will be sent to this address."
+                        required
+                      />
+                      <div>
+                        <label htmlFor="booking-special-requests" className="mb-2 block text-sm font-medium text-[#1F2937]">
+                          Special Requests (Optional)
+                        </label>
+                        <TextArea
+                          id="booking-special-requests"
+                          rows={3}
+                          placeholder="E.g., early arrival, airport transfer, or dietary restrictions..."
+                          value={specialRequests}
+                          onChange={(e) => setSpecialRequests(e.target.value)}
+                          helperText="Our team will do their best to accommodate your request."
+                        />
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Booking Stay Information Recap / Edit */}
-                  <div>
-                    <h3 className="text-sm font-semibold text-[#12355B] uppercase tracking-wider mb-3">
-                      Stay Parameters
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <DatePickerInput
-                        id="booking-confirm-checkin"
-                        label="Check-in Date"
-                        value={checkIn}
-                        onChange={(e) => setCheckIn(e.target.value)}
-                        error={bookingErrors.checkIn}
-                      />
-                      <DatePickerInput
-                        id="booking-confirm-checkout"
-                        label="Check-out Date"
-                        value={checkOut}
-                        onChange={(e) => setCheckOut(e.target.value)}
-                        error={bookingErrors.checkOut}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-                      <SelectDropdown
-                        id="booking-confirm-guests"
-                        label="Number of Guests"
-                        value={guestsCount}
-                        onChange={(e) => setGuestsCount(Number(e.target.value))}
-                        options={[
-                          { value: 1, label: '1 Guest' },
-                          { value: 2, label: '2 Guests' },
-                          { value: 3, label: '3 Guests' },
-                          { value: 4, label: '4 Guests' },
-                        ]}
-                      />
-                      <SelectDropdown
-                        id="booking-confirm-rooms"
-                        label="Number of Rooms"
-                        value={roomsCount}
-                        onChange={(e) => setRoomsCount(Number(e.target.value))}
-                        options={[
-                          { value: 1, label: '1 Room' },
-                          { value: 2, label: '2 Rooms' },
-                          { value: 3, label: '3 Rooms' },
-                        ]}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Special Requests (Optional TextArea) */}
-                  <div>
-                    <h3 className="text-sm font-semibold text-[#12355B] uppercase tracking-wider mb-2">
-                      Special Requests
-                    </h3>
-                    <TextArea
-                      id="booking-special-requests"
-                      rows={3}
-                      placeholder="E.g., early arrival, airport transfer, quiet high-floor room, king bed preference, or dietary restrictions..."
-                      value={specialRequests}
-                      onChange={(e) => setSpecialRequests(e.target.value)}
-                      helperText="Special requests cannot be guaranteed but our staff will do their utmost to accommodate."
-                    />
-                  </div>
-
-                  {/* Submit Button for Mobile / Alternate position */}
-                  <div className="pt-2 lg:hidden">
-                    <Button
-                      id="mobile-confirm-booking-btn"
-                      variant="primary"
-                      size="lg"
-                      type="submit"
-                      fullWidth
-                      disabled={isSubmittingBooking}
-                    >
-                      {isSubmittingBooking ? 'Submitting Reservation...' : 'Confirm Booking'}
-                    </Button>
                   </div>
                 </form>
               </div>
@@ -1259,105 +1188,50 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
               >
                 <div className="flex items-center justify-between pb-4 border-b border-[#E5E7EB] mb-5">
                   <h3 className="font-serif text-xl font-bold text-[#12355B]">
-                    Booking Summary
+                    C. Booking Summary
                   </h3>
                   <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#12355B]/10 text-[#12355B] font-semibold">
                     Direct Rate
                   </span>
                 </div>
 
-                {/* Selected Room Visual */}
-                <div className="flex gap-4 items-center mb-5 pb-5 border-b border-[#E5E7EB]">
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[10px] border border-[#E5E7EB] bg-[#F8F7F4] text-center text-[10px] font-semibold text-[#12355B]">
-                    {selectedRoom.name}
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-[#D4A853] font-semibold block">
-                      {selectedRoom.category}
-                    </span>
-                    <h4 className="font-serif font-bold text-lg text-[#12355B]">
-                      {selectedRoom.name}
-                    </h4>
-                    <p className="text-xs text-[#6B7280]">
-                      Capacity: {selectedRoom.capacityGuests} Guests &bull; {selectedRoom.bedType}
-                    </p>
-                    <p className="text-xs font-semibold text-[#12355B] mt-0.5">
-                      ETB {selectedRoom.pricePerNight.toLocaleString()} / night
-                    </p>
-                  </div>
-                </div>
-
-                {/* Stay Dates Breakdown */}
+                {/* Booking Breakdown */}
                 <div className="space-y-3 text-xs sm:text-sm text-[#4B5563] pb-5 border-b border-[#E5E7EB]">
                   <div className="flex justify-between items-center">
-                    <span className="text-[#6B7280]">Check-in:</span>
+                    <span className="text-[#6B7280]">Room:</span>
+                    <strong className="text-[#1F2937] font-semibold">{selectedRoom.name}</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#6B7280]">Price per night:</span>
                     <strong className="text-[#1F2937] font-semibold">
-                      {formatDateFriendly(checkIn)}
+                      ETB {selectedRoom.pricePerNight.toLocaleString()}
                     </strong>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#6B7280]">Check-out:</span>
-                    <strong className="text-[#1F2937] font-semibold">
-                      {formatDateFriendly(checkOut)}
-                    </strong>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#6B7280]">Duration:</span>
+                    <span className="text-[#6B7280]">Nights:</span>
                     <strong className="text-[#1F2937] font-semibold">
                       {nights} {nights === 1 ? 'Night' : 'Nights'}
                     </strong>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#6B7280]">Guests & Rooms:</span>
-                    <strong className="text-[#1F2937] font-semibold">
-                      {guestsCount} Guest(s), {roomsCount} Room(s)
-                    </strong>
-                  </div>
                 </div>
 
-                {/* Price Breakdown */}
-                <div className="py-4 space-y-2 text-xs sm:text-sm border-b border-[#E5E7EB]">
-                  <div className="flex justify-between text-[#6B7280]">
-                    <span>
-                      ETB {selectedRoom.pricePerNight.toLocaleString()} &times; {nights} nights
-                    </span>
-                    <span className="text-[#1F2937]">ETB {subtotal.toLocaleString()}</span>
-                  </div>
-
-                  <div className="flex justify-between text-[#16A34A]">
-                    <span className="flex items-center gap-1">
-                      <Tag className="w-3.5 h-3.5" />
-                      Direct Booking Advantage (10% Off)
-                    </span>
-                    <span>-ETB {directDiscount.toLocaleString()}</span>
-                  </div>
-
-                  <div className="flex justify-between text-[#6B7280]">
-                    <span>Hospitality Tax & Service (8%)</span>
-                    <span className="text-[#1F2937]">ETB {taxes.toLocaleString()}</span>
-                  </div>
-                </div>
-
-                {/* Estimated Total Price: Example ETB 10,500 */}
                 <div className="py-4 flex items-baseline justify-between mb-4">
-                  <div>
-                    <span className="text-xs text-[#6B7280] block">Estimated Total</span>
-                    <span className="text-xs text-[#16A34A] font-medium">Taxes & fees included</span>
-                  </div>
+                  <span className="text-sm font-semibold text-[#12355B]">Total</span>
                   <div className="text-right">
                     <span className="font-serif text-2xl sm:text-3xl font-bold text-[#12355B]">
-                      ETB {estimatedTotal.toLocaleString()}
+                      ETB {subtotal.toLocaleString()}
                     </span>
                   </div>
                 </div>
 
-                {/* Primary Button: Confirm Booking (Desktop) */}
+                {/* Primary Button: Continue to Payment */}
                 <Button
                   id="confirm-booking-btn"
                   variant="primary"
                   size="lg"
                   fullWidth
-                  onClick={handleBookingSubmit}
+                  type="submit"
+                  form="booking-guest-form"
                   disabled={isSubmittingBooking}
                   className="mb-4 shadow-sm font-semibold"
                 >
@@ -1367,7 +1241,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                       Confirming Request...
                     </span>
                   ) : (
-                    'Confirm Booking'
+                    'Continue to Payment'
                   )}
                 </Button>
 
@@ -1375,9 +1249,9 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                 <div className="p-3.5 rounded-[8px] bg-[#F8F7F4] border border-[#E5E7EB] text-[11px] text-[#6B7280] leading-relaxed">
                   <div className="flex items-center gap-1.5 font-semibold text-[#12355B] mb-1">
                     <ShieldCheck className="w-3.5 h-3.5 text-[#D4A853]" />
-                    <span>Booking Policy & Guarantee</span>
+                    <span>Payment and booking status</span>
                   </div>
-                  Please note: This room reservation request is held immediately and confirmed by our front desk within 2 hours. No upfront payment or credit card charge is required online.
+                  Continuing submits a room reservation request. Online payment is not available here; the hotel team will confirm your booking and arrange payment.
                 </div>
               </div>
             </div>
@@ -1874,7 +1748,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
           checkIn,
           checkOut,
           guests: guestsCount,
-          rooms: roomsCount,
+          rooms: 1,
         }}
       />
     </div>

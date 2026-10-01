@@ -147,12 +147,38 @@ CORS_ALLOWED_ORIGINS = config(
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
+FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000").rstrip("/")
+CHAPA_SECRET_KEY = config("CHAPA_SECRET_KEY", default="")
+CHAPA_WEBHOOK_SECRET = config("CHAPA_WEBHOOK_SECRET", default="")
+CHAPA_CALLBACK_URL = config("CHAPA_CALLBACK_URL", default="").strip()
+CHAPA_API_BASE_URL = config(
+    "CHAPA_API_BASE_URL",
+    default="https://api.chapa.co/v1",
+).rstrip("/")
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
+MAILER_BACKEND = config(
+    "MAILER_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
+MAILER_OPTIONS = {}
+if MAILER_BACKEND == "django.core.mail.backends.smtp.EmailBackend":
+    MAILER_OPTIONS = {
+        "host": config("MAILER_HOST"),
+        "port": config("MAILER_PORT", default=587, cast=int),
+        "username": config("MAILER_USERNAME"),
+        "password": config("MAILER_PASSWORD"),
+        "use_tls": config("MAILER_USE_TLS", default=True, cast=bool),
+    }
+
 MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+    "default": {
+        "BACKEND": MAILER_BACKEND,
+        "OPTIONS": MAILER_OPTIONS,
     },
 }
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="reservations@thegrandviewhotel.com")
+HOTEL_NOTIFICATION_EMAIL = config("HOTEL_NOTIFICATION_EMAIL", default="")

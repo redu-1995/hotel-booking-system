@@ -12,6 +12,7 @@ export type Booking = {
   booking_status: string;
   total_amount: string;
   advance_amount: string;
+  hold_expires_at: string | null;
   nights: number;
   balance_due: string;
   created_at: string;
@@ -38,12 +39,33 @@ export type AvailableRoom = {
   base_price: string;
 };
 
+export type BookingPaymentDetails = {
+  booking_reference: string;
+  booking_status: string;
+  room_name: string;
+  check_in_date: string;
+  check_out_date: string;
+  nights: number;
+  number_of_guests: number;
+  room_rate: string;
+  room_subtotal: string;
+  total_amount: string;
+  amount_paid: string;
+  payment_status: string | null;
+  chapa_enabled: boolean;
+  hold_expires_at: string | null;
+};
+
 export function getBookings(query = "") { return apiList<Booking>(`/bookings/${query ? `?${query}` : ""}`); }
 export function getBooking(id: number) { return apiFetch<Booking>(`/bookings/${id}/`); }
 export function createBooking(payload: BookingPayload) { return apiFetch<Booking>("/bookings/", { method: "POST", body: payload }); }
 export function getAvailability(checkIn: string, checkOut: string, guests: number) {
   const params = new URLSearchParams({ check_in_date: checkIn, check_out_date: checkOut, number_of_guests: String(guests) });
   return apiList<AvailableRoom>(`/bookings/availability/?${params}`);
+}
+export function getBookingPaymentDetails(reference: string) {
+  const params = new URLSearchParams({ booking_reference: reference });
+  return apiFetch<BookingPaymentDetails>(`/bookings/payment-details/?${params}`);
 }
 export function confirmBooking(id: number) { return apiFetch<Booking>(`/bookings/${id}/confirm/`, { method: "POST" }); }
 export function cancelBooking(id: number) { return apiFetch<Booking>(`/bookings/${id}/cancel/`, { method: "POST" }); }
