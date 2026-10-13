@@ -79,7 +79,9 @@ function toUiRoom(room: ApiRoom, index: number): Room {
     allAmenities: roomType?.amenities_list || [],
     rating: 0,
     reviewsCount: 0,
-    availability: 'unavailable',
+    availability: (room.is_available ?? room.status?.toUpperCase() === 'AVAILABLE')
+      ? 'available'
+      : 'unavailable',
     isPopular: index === 0,
   };
 }
