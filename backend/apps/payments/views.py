@@ -21,7 +21,7 @@ from .chapa import ChapaError, initialize_transaction, verify_webhook_signature
 from .models import Payment
 from .permissions import IsPaymentStaff, IsPaymentVerifier
 from .serializers import PaymentCreateSerializer, PaymentSerializer
-from .services import verify_chapa_payment, verify_manual_payment
+from .services import send_booking_confirmation, verify_chapa_payment, verify_manual_payment
 
 
 def _settle_chapa_reference(transaction_reference):
@@ -91,7 +91,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
 	def get_queryset(self):
 		queryset = super().get_queryset().select_related(
-			"booking__guest", "verified_by"
+			"booking__guest", "booking__room__room_type", "verified_by"
 		)
 		params = self.request.query_params
 		for parameter in ("booking", "status", "payment_method"):
@@ -133,6 +133,35 @@ class PaymentViewSet(viewsets.ModelViewSet):
 		except ChapaError as exc:
 			return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 		return Response(PaymentSerializer(payment).data)
+
+	@action(
+		detail=True,
+		methods=["post"],
+		permission_classes=[IsPaymentVerifier],
+		url_path="resend-confirmation",
+	)
+	def resend_confirmation(self, request, pk=None):
+		payment = self.get_object()
+		booking = payment.booking
+		if (
+			payment.status != Payment.Status.COMPLETED
+			or booking.booking_status != Booking.BookingStatus.CONFIRMED
+		):
+			return Response(
+				{"detail": "A confirmation email can only be sent for a paid, confirmed booking."},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
+		if not booking.guest.email:
+			return Response(
+				{"detail": "The guest has no email address on file."},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
+		if not send_booking_confirmation(booking, payment):
+			return Response(
+				{"detail": "The confirmation email could not be sent. Please retry."},
+				status=status.HTTP_502_BAD_GATEWAY,
+			)
+		return Response({"detail": "Confirmation email sent."})
 
 	@action(
 		detail=False,

@@ -85,7 +85,9 @@ function toUiRoom(room: ApiRoom): Room {
     allAmenities: roomType?.amenities_list || [],
     rating: 0,
     reviewsCount: 0,
-    availability: 'unavailable',
+    availability: (room.is_available ?? room.status?.toUpperCase() === 'AVAILABLE')
+      ? 'available'
+      : 'unavailable',
   };
 }
 
@@ -801,7 +803,9 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {availableRoomsList.map((room) => {
               const isCurrentSelection = selectedRoom.id === room.id;
-              const isUnavailable = !availableRoomIds?.includes(Number(room.id));
+              const isUnavailable = availableRoomIds
+                ? !availableRoomIds.includes(Number(room.id))
+                : room.availability === 'unavailable';
 
               return (
                 <div

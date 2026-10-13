@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -80,6 +81,27 @@ class PaymentVerificationTests(TestCase):
             ).exists()
         )
         self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.booking.guest.email])
+        self.assertEqual(
+            mail.outbox[0].subject,
+            f"Hotel Booking Confirmation - {self.booking.booking_reference}",
+        )
+        self.assertIn(f"Dear {self.booking.guest.full_name},", mail.outbox[0].body)
+        self.assertIn(f"Room: {self.booking.room.room_type.name}", mail.outbox[0].body)
+        check_in = (
+            f"{self.booking.check_in_date.strftime('%B')} "
+            f"{self.booking.check_in_date.day}, {self.booking.check_in_date.year}"
+        )
+        check_out = (
+            f"{self.booking.check_out_date.strftime('%B')} "
+            f"{self.booking.check_out_date.day}, {self.booking.check_out_date.year}"
+        )
+        self.assertIn(f"Check-in: {check_in}", mail.outbox[0].body)
+        self.assertIn(f"Check-out: {check_out}", mail.outbox[0].body)
+        self.assertIn(f"Nights: {self.booking.nights}", mail.outbox[0].body)
+        self.assertIn(f"Guests: {self.booking.number_of_guests}", mail.outbox[0].body)
+        self.assertIn(f"Total amount: ETB {self.booking.total_amount}", mail.outbox[0].body)
+        self.assertIn("Payment status: Paid", mail.outbox[0].body)
         self.assertIn("Payment method: Credit Card", mail.outbox[0].body)
         self.assertIn("Transaction reference: TXN-PAY-1", mail.outbox[0].body)
         self.assertIn("Hotel contact:", mail.outbox[0].body)
@@ -96,6 +118,45 @@ class PaymentVerificationTests(TestCase):
         verify_manual_payment(self.payment, self.staff_user)
         self.assertEqual(Notification.objects.filter(booking=self.booking).count(), 2)
         self.assertEqual(len(mail.outbox), 1)
+
+    def test_failed_confirmation_email_can_be_retried_without_reverting_booking(self):
+        attempts = 0
+
+        def fail_once_then_send(*args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise OSError("SMTP unavailable")
+            return mail.send_mail(*args, **kwargs)
+
+        with patch("apps.payments.services.send_mail", side_effect=fail_once_then_send):
+            with self.assertLogs("apps.payments.services", level="ERROR"):
+                with self.captureOnCommitCallbacks(execute=True):
+                    response = self.client.post(f"/api/payments/{self.payment.id}/verify/")
+
+            self.assertEqual(response.status_code, 200)
+            self.booking.refresh_from_db()
+            self.payment.refresh_from_db()
+            self.assertEqual(self.booking.booking_status, Booking.BookingStatus.CONFIRMED)
+            self.assertEqual(self.payment.status, Payment.Status.COMPLETED)
+            self.assertEqual(len(mail.outbox), 0)
+
+            retry_response = self.client.post(
+                f"/api/payments/{self.payment.id}/resend-confirmation/"
+            )
+
+        self.assertEqual(retry_response.status_code, 200)
+        self.assertEqual(attempts, 2)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.booking.guest.email])
+
+    def test_confirmation_email_retry_requires_completed_payment_and_confirmed_booking(self):
+        response = self.client.post(
+            f"/api/payments/{self.payment.id}/resend-confirmation/"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_staff_notification_list_and_unread_count_are_scoped_to_current_user(self):
         response = self.client.post(f"/api/payments/{self.payment.id}/verify/")

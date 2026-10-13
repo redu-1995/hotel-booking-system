@@ -16,38 +16,68 @@ from .models import Payment
 logger = logging.getLogger(__name__)
 
 
-def _send_booking_confirmation(booking, payment):
-    recipients = []
-    if booking.guest.email:
-        recipients.append(booking.guest.email)
+def send_booking_confirmation(booking, payment):
+    if not booking.guest.email:
+        logger.warning(
+            "Unable to send confirmation for booking %s: guest has no email address",
+            booking.booking_reference,
+        )
+        return False
+
+    recipients = [booking.guest.email]
     if settings.HOTEL_NOTIFICATION_EMAIL:
         recipients.append(settings.HOTEL_NOTIFICATION_EMAIL)
-    if not recipients:
-        return
 
-    subject = f"Booking confirmed: {booking.booking_reference}"
+    subject = f"Hotel Booking Confirmation - {booking.booking_reference}"
+    check_in = (
+        f"{booking.check_in_date.strftime('%B')} "
+        f"{booking.check_in_date.day}, {booking.check_in_date.year}"
+    )
+    check_out = (
+        f"{booking.check_out_date.strftime('%B')} "
+        f"{booking.check_out_date.day}, {booking.check_out_date.year}"
+    )
     body = "\n".join((
         "The Grandview Hotel & Suites",
         "",
-        "Booking Confirmation",
+        "Your Booking Is Confirmed!",
+        "",
+        f"Dear {booking.guest.full_name},",
+        "Thank you for choosing our hotel. Your reservation has been confirmed successfully.",
+        "",
+        "Booking details",
         f"Booking reference: {booking.booking_reference}",
-        f"Guest: {booking.guest.full_name}",
         f"Room: {booking.room.room_type.name}",
-        f"Check-in: {booking.check_in_date}",
-        f"Check-out: {booking.check_out_date}",
+        f"Check-in: {check_in}",
+        f"Check-out: {check_out}",
         f"Guests: {booking.number_of_guests}",
         f"Nights: {booking.nights}",
-        f"Amount paid: ETB {booking.total_paid}",
-        "Payment: Completed",
+        f"Total amount: ETB {booking.total_amount}",
+        "Payment status: Paid",
         f"Payment method: {payment.get_payment_method_display()}",
         f"Transaction reference: {payment.transaction_reference or 'Not provided'}",
         f"Provider reference: {payment.provider_reference or 'Not provided'}",
+        "Please keep your booking reference for check-in at the hotel.",
+        "We look forward to welcoming you!",
+        "",
+        "Hotel Management Team",
         f"Hotel contact: {settings.DEFAULT_FROM_EMAIL} | {settings.HOTEL_CONTACT_PHONE}",
     ))
     try:
-        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, recipients, fail_silently=False)
+        sent_count = send_mail(
+            subject,
+            body,
+            settings.DEFAULT_FROM_EMAIL,
+            recipients,
+            fail_silently=False,
+        )
     except Exception:
         logger.exception("Unable to send confirmation for booking %s", booking.booking_reference)
+        return False
+    if not sent_count:
+        logger.error("Email backend did not send confirmation for booking %s", booking.booking_reference)
+        return False
+    return True
 
 
 def _record_verified_payment(payment_id, provider_reference=None, verified_by=None):
@@ -90,7 +120,7 @@ def _record_verified_payment(payment_id, provider_reference=None, verified_by=No
 
     if confirmed_booking:
         transaction.on_commit(
-            lambda: _send_booking_confirmation(confirmed_booking, confirmed_payment)
+            lambda: send_booking_confirmation(confirmed_booking, confirmed_payment)
         )
     return payment, booking
 

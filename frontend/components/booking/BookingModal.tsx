@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Room, BookingSearchState, Reservation } from '../../types/types';
 import { Button } from '../ui/Button';
 import { TextInput, DatePickerInput, SelectDropdown } from '../ui/FormInputs';
 import { StatusBadge } from '../ui/Badge';
-import { getAvailability } from '../../lib/api/bookings';
-import { X, CheckCircle2, ShieldCheck, CreditCard, Sparkles, Calendar, User, Bed, Mail, Phone, Lock } from 'lucide-react';
+import { createBooking, getAvailability } from '../../lib/api/bookings';
+import { X, CheckCircle2, Sparkles, User, Mail, Phone, Lock } from 'lucide-react';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -23,8 +24,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   selectedRoom: initialRoom,
   allRooms,
   searchState,
-  onConfirmReservation,
 }) => {
+  const router = useRouter();
   const [currentRoom, setCurrentRoom] = useState<Room>(initialRoom || allRooms[0]);
   const [checkIn, setCheckIn] = useState<string>(searchState.checkIn);
   const [checkOut, setCheckOut] = useState<string>(searchState.checkOut);
@@ -71,9 +72,22 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         setAvailabilityError('This room is not available for the selected dates and guest count.');
         return;
       }
+      const booking = await createBooking({
+        guest_info: {
+          full_name: guestName.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+        },
+        room: Number(currentRoom.id),
+        check_in_date: checkIn,
+        check_out_date: checkOut,
+        number_of_guests: guests,
+        booking_source: 'DIRECT',
+        advance_amount: 0,
+      });
       const newReservation: Reservation = {
-        id: `res-${Date.now()}`,
-        referenceNumber: `GV-DIR-${Math.floor(10000 + Math.random() * 90000)}`,
+        id: String(booking.id),
+        referenceNumber: booking.booking_reference,
         roomId: currentRoom.id,
         roomName: currentRoom.name,
         guestName,
@@ -84,14 +98,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         nights,
         guests,
         roomsCount,
-        totalPrice: total,
-        status: 'confirmed',
+        totalPrice: Number(booking.total_amount),
+        status: 'pending',
         specialRequests,
-        createdAt: new Date().toISOString(),
+        createdAt: booking.created_at,
       };
 
-      onConfirmReservation(newReservation);
       setConfirmedReservation(newReservation);
+      router.push(`/payment?reference=${encodeURIComponent(booking.booking_reference)}`);
     } catch (error) {
       setAvailabilityError(error instanceof Error ? error.message : 'Unable to check availability.');
     } finally {
@@ -128,13 +142,13 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
             <div>
               <div className="mb-2">
-                <StatusBadge status="confirmed" />
+                <StatusBadge status="pending" />
               </div>
               <h2 className="font-serif font-bold text-2xl sm:text-3xl text-[#12355B]">
-                Your Reservation is Confirmed!
+                Your Booking Is Held for Payment
               </h2>
               <p className="text-sm text-[#6B7280] mt-2 max-w-lg mx-auto">
-                Thank you for booking directly with <strong className="text-[#12355B]">The Grandview Hotel</strong>. A confirmation email with receipt and check-in instructions has been sent to <span className="font-medium text-[#1F2937]">{email}</span>.
+                Your room is held temporarily, but the booking is not confirmed yet. Continue to payment to complete your reservation.
               </p>
             </div>
 
@@ -155,8 +169,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 <div className="font-medium text-right text-[#1F2937]">{confirmedReservation.checkIn} to {confirmedReservation.checkOut}</div>
                 <div className="text-[#6B7280]">Duration:</div>
                 <div className="font-medium text-right text-[#1F2937]">{confirmedReservation.nights} Nights, {confirmedReservation.guests} Guests</div>
-                <div className="text-[#6B7280]">Total Paid at Check-in:</div>
-                <div className="font-bold text-right text-[#12355B] text-base">${confirmedReservation.totalPrice} USD</div>
+                <div className="text-[#6B7280]">Amount Due:</div>
+                <div className="font-bold text-right text-[#12355B] text-base">ETB {confirmedReservation.totalPrice.toLocaleString()}</div>
               </div>
             </div>
 
@@ -164,10 +178,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <Button
                 variant="primary"
                 size="md"
-                onClick={onClose}
+                onClick={() => router.push(`/payment?reference=${encodeURIComponent(confirmedReservation.referenceNumber)}`)}
                 className="w-full sm:w-auto px-8"
               >
-                Return to Homepage
+                Continue to Payment
               </Button>
             </div>
           </div>
