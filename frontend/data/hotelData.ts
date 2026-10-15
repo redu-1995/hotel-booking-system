@@ -225,6 +225,25 @@ export const ROOMS_DATA: Room[] = [
   }
 ];
 
+function normalizeRoomName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+export function getRoomImagery(
+  name: string,
+  category: Room['category'],
+): Pick<Room, 'image' | 'galleryImages'> {
+  const normalizedName = normalizeRoomName(name);
+  const catalogRoom = ROOMS_DATA.find((room) => normalizeRoomName(room.name) === normalizedName)
+    ?? ROOMS_DATA.find((room) => room.category === category)
+    ?? ROOMS_DATA[0];
+
+  return {
+    image: catalogRoom.image,
+    galleryImages: catalogRoom.galleryImages,
+  };
+}
+
 export const WHY_CHOOSE_ITEMS: WhyChooseItem[] = [
   {
     id: 'comfortable-rooms',

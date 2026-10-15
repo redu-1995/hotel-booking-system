@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header, NavPage } from '../../components/layout/Header';
 import { Footer } from '../../components/layout/Footer';
 import { Button } from '../../components/ui/Button';
 import { HOTEL_INFO } from '../../data/hotelData';
 import { Inquiry } from '../../types/types';
+import type { RoomType } from '../../types';
+import { apiList } from '../../lib/api/client';
+import { createInquiry, Inquiry as ApiInquiry, InquiryPayload } from '../../lib/api/inquiries';
 import {
   Phone,
   Mail,
@@ -32,53 +35,12 @@ import {
   ChevronDown
 } from 'lucide-react';
 
-/**
- * Django REST Framework API Data Contract for Hotel Inquiries
- * Ready to connect directly to `POST /api/inquiries/`
- */
-export interface DjangoInquiryPayload {
-  full_name: string;
-  phone_number: string;
-  email?: string;
-  preferred_room_type?: string;
-  check_in_date: string;
-  check_out_date: string;
-  number_of_guests: number;
-  request_message: string;
-}
-
-export interface DjangoInquiryResponse {
-  id: string;
-  reference_number: string;
-  full_name: string;
-  phone_number: string;
-  email?: string;
-  preferred_room_type: string;
-  check_in_date: string;
-  check_out_date: string;
-  number_of_guests: number;
-  request_message: string;
-  status: 'pending' | 'in_review' | 'contacted';
-  created_at: string;
-}
-
 interface InquiryPageProps {
   onNavigate: (page: NavPage) => void;
   onOpenDesignSystem?: () => void;
   onAddInquiry?: (inquiry: Omit<Inquiry, 'id' | 'referenceNumber' | 'createdAt'>) => void;
   initialRoomType?: string;
 }
-
-// Available room options as specified in the brief
-const ROOM_TYPE_OPTIONS = [
-  'Any Room',
-  'Standard Room',
-  'Superior Single Room',
-  'Deluxe King Room',
-  'Family Suite',
-  'Executive Suite',
-  'Presidential Penthouse Suite',
-];
 
 export const InquiryPage: React.FC<InquiryPageProps> = ({
   onNavigate,
@@ -90,7 +52,10 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
-  const [preferredRoomType, setPreferredRoomType] = useState(initialRoomType || 'Any Room');
+  const [subject, setSubject] = useState('');
+  const [preferredRoomType, setPreferredRoomType] = useState('');
+  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+  const [roomTypesError, setRoomTypesError] = useState<string | null>(null);
   
   // Date calculation defaults: Tomorrow and 3 days later
   const todayStr = new Date().toISOString().split('T')[0];
@@ -106,11 +71,31 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successData, setSuccessData] = useState<DjangoInquiryResponse | null>(null);
+  const [successData, setSuccessData] = useState<ApiInquiry | null>(null);
   const [copiedRef, setCopiedRef] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const formRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let isActive = true;
+    apiList<RoomType>('/room-types/')
+      .then((types) => {
+        if (!isActive) return;
+        setRoomTypes(types);
+        const matchingType = initialRoomType
+          ? types.find((type) => type.name.toLowerCase() === initialRoomType.toLowerCase())
+          : undefined;
+        if (matchingType) setPreferredRoomType(String(matchingType.id));
+      })
+      .catch(() => {
+        if (isActive) setRoomTypesError('Room types could not be loaded. You can still submit without choosing one.');
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [initialRoomType]);
 
   // Quick categories for special inquiries
   const specialCategories = [
@@ -183,20 +168,22 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
       newErrors.phoneNumber = 'Please enter a valid telephone number with area code.';
     }
 
-    if (emailAddress.trim()) {
+    if (!emailAddress.trim()) {
+      newErrors.emailAddress = 'Email address is required so we can respond to your inquiry.';
+    } else {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(emailAddress.trim())) {
         newErrors.emailAddress = 'Please enter a valid email address (e.g. name@example.com).';
       }
     }
 
-    if (!checkInDate) {
-      newErrors.checkInDate = 'Check-in date is required.';
+    if (!subject.trim()) {
+      newErrors.subject = 'Subject is required.';
     }
 
-    if (!checkOutDate) {
-      newErrors.checkOutDate = 'Check-out date is required.';
-    } else if (checkInDate && checkOutDate <= checkInDate) {
+    if (Boolean(checkInDate) !== Boolean(checkOutDate)) {
+      newErrors.checkOutDate = 'Provide both stay dates or leave both blank.';
+    } else if (checkInDate && checkOutDate && checkOutDate <= checkInDate) {
       newErrors.checkOutDate = 'Check-out date must be strictly after the check-in date.';
     }
 
@@ -227,74 +214,53 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
 
     setSubmitStatus('submitting');
 
-    // Django API compatible payload
-    const payload: DjangoInquiryPayload = {
-      full_name: fullName.trim(),
-      phone_number: phoneNumber.trim(),
-      email: emailAddress.trim() || undefined,
-      preferred_room_type: preferredRoomType,
-      check_in_date: checkInDate,
-      check_out_date: checkOutDate,
+    const payload: InquiryPayload = {
+      name: fullName.trim(),
+      email: emailAddress.trim(),
+      phone: phoneNumber.trim(),
+      subject: subject.trim(),
+      ...(preferredRoomType ? { preferred_room_type: Number(preferredRoomType) } : {}),
+      ...(checkInDate && checkOutDate
+        ? { check_in_date: checkInDate, check_out_date: checkOutDate }
+        : {}),
       number_of_guests: Number(numberOfGuests),
-      request_message: requestMessage.trim(),
+      message: requestMessage.trim(),
     };
 
     try {
-      // Simulate / ready for real Django REST API endpoint: POST /api/inquiries/
-      // In production with backend running, this uses:
-      // const res = await fetch('/api/inquiries/', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(payload)
-      // });
-      
-      await new Promise((resolve) => setTimeout(resolve, 850));
-
-      const generatedRef = `INQ-${Math.floor(100000 + Math.random() * 900000)}`;
-      const responseData: DjangoInquiryResponse = {
-        id: `django-inq-${Date.now()}`,
-        reference_number: generatedRef,
-        full_name: payload.full_name,
-        phone_number: payload.phone_number,
-        email: payload.email,
-        preferred_room_type: payload.preferred_room_type || 'Any Room',
-        check_in_date: payload.check_in_date,
-        check_out_date: payload.check_out_date,
-        number_of_guests: payload.number_of_guests,
-        request_message: payload.request_message,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-      };
+      const responseData = await createInquiry(payload);
 
       // Notify parent app state
       if (onAddInquiry) {
         onAddInquiry({
-          guestName: responseData.full_name,
-          phone: responseData.phone_number,
-          email: responseData.email || '',
-          roomType: responseData.preferred_room_type,
-          checkIn: responseData.check_in_date,
-          checkOut: responseData.check_out_date,
+          guestName: responseData.name,
+          phone: responseData.phone,
+          email: responseData.email,
+          roomType: responseData.preferred_room_type_name || 'Any Room',
+          checkIn: responseData.check_in_date || '',
+          checkOut: responseData.check_out_date || '',
           guests: responseData.number_of_guests,
-          status: 'pending',
-          message: responseData.request_message,
+          status: responseData.status.toLowerCase() as Inquiry['status'],
+          message: responseData.message || '',
         });
       }
 
       setSuccessData(responseData);
       setSubmitStatus('success');
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setSubmitStatus('error');
       setErrorMessage(
-        err?.message || 'Unable to submit your inquiry at this moment. Please verify your connection or contact our front desk directly.'
+        err instanceof Error
+          ? err.message
+          : 'Unable to submit your inquiry at this moment. Please verify your connection or contact our front desk directly.'
       );
     }
   };
 
   const handleCopyReference = () => {
-    if (successData?.reference_number) {
-      navigator.clipboard.writeText(successData.reference_number);
+    if (successData) {
+      navigator.clipboard.writeText(`INQ-${successData.id}`);
       setCopiedRef(true);
       setTimeout(() => setCopiedRef(false), 2200);
     }
@@ -304,7 +270,8 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
     setFullName('');
     setPhoneNumber('');
     setEmailAddress('');
-    setPreferredRoomType('Any Room');
+    setPreferredRoomType('');
+    setSubject('');
     setCheckInDate(tomorrowStr);
     setCheckOutDate(defaultCheckoutStr);
     setNumberOfGuests(2);
@@ -318,6 +285,7 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
 
   const handleSelectCategory = (cat: typeof specialCategories[0]) => {
     setSelectedCategory(cat.id);
+    setSubject(cat.title);
     if (!requestMessage || requestMessage.trim().length === 0) {
       setRequestMessage(cat.templatePrompt);
     } else {
@@ -431,7 +399,7 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
                             Inquiry Reference
                           </span>
                           <span className="font-mono text-xl sm:text-2xl font-bold text-[#12355B]">
-                            {successData.reference_number}
+                            INQ-{successData.id}
                           </span>
                         </div>
                         <Button
@@ -458,11 +426,11 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
                       <div className="text-xs sm:text-sm text-[#4B5563] space-y-1.5">
                         <div className="flex justify-between">
                           <span className="text-[#6B7280]">Guest Name:</span>
-                          <span className="font-medium text-[#1F2937]">{successData.full_name}</span>
+                          <span className="font-medium text-[#1F2937]">{successData.name}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-[#6B7280]">Phone:</span>
-                          <span className="font-medium text-[#1F2937]">{successData.phone_number}</span>
+                          <span className="font-medium text-[#1F2937]">{successData.phone}</span>
                         </div>
                         {successData.email && (
                           <div className="flex justify-between">
@@ -473,16 +441,18 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
                         <div className="flex justify-between">
                           <span className="text-[#6B7280]">Dates:</span>
                           <span className="font-medium text-[#1F2937]">
-                            {successData.check_in_date} to {successData.check_out_date}
+                            {successData.check_in_date && successData.check_out_date
+                              ? `${successData.check_in_date} to ${successData.check_out_date}`
+                              : 'Not specified'}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-[#6B7280]">Room Choice:</span>
-                          <span className="font-medium text-[#1F2937]">{successData.preferred_room_type}</span>
+                          <span className="font-medium text-[#1F2937]">{successData.preferred_room_type_name || 'Any Room'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-[#6B7280]">Guests:</span>
-                          <span className="font-medium text-[#1F2937]">{successData.number_of_guests} guest(s)</span>
+                          <span className="font-medium text-[#1F2937]">{successData.number_of_guests} guest(s) · {successData.status}</span>
                         </div>
                       </div>
                     </div>
@@ -623,18 +593,17 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
                         </div>
                       </div>
 
-                      {/* Row 2: Email Address (Optional) & Preferred Room Type (Optional Dropdown) */}
+                      {/* Row 2: Contact Email and Preferred Room Type */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        {/* 3. Email Address (Optional) */}
+                        {/* 3. Email Address */}
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
                             <label
                               htmlFor="inquiry-email-address"
                               className="block text-sm font-semibold text-[#1F2937]"
                             >
-                              Email Address
+                              Email Address <span className="text-[#DC2626]">*</span>
                             </label>
-                            <span className="text-xs text-[#6B7280] font-normal">Optional</span>
                           </div>
                           <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#6B7280]">
@@ -687,9 +656,10 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
                               disabled={submitStatus === 'submitting'}
                               className="w-full appearance-none bg-white border border-[#E5E7EB] focus:border-[#12355B] focus:ring-[#12355B]/20 text-[#1F2937] text-sm rounded-lg transition-colors py-2.5 pl-10 pr-10 focus:outline-none focus:ring-2 cursor-pointer disabled:bg-gray-100"
                             >
-                              {ROOM_TYPE_OPTIONS.map((room) => (
-                                <option key={room} value={room}>
-                                  {room}
+                              <option value="">Any Room</option>
+                              {roomTypes.map((room) => (
+                                <option key={room.id} value={room.id}>
+                                  {room.name}
                                 </option>
                               ))}
                             </select>
@@ -697,7 +667,31 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
                               <ChevronDown className="w-4 h-4" />
                             </div>
                           </div>
+                          {roomTypesError && <p className="mt-1.5 text-xs text-[#6B7280]">{roomTypesError}</p>}
                         </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="inquiry-subject" className="mb-1.5 block text-sm font-semibold text-[#1F2937]">
+                          Subject <span className="text-[#DC2626]">*</span>
+                        </label>
+                        <input
+                          id="inquiry-subject"
+                          type="text"
+                          value={subject}
+                          onChange={(e) => {
+                            setSubject(e.target.value);
+                            if (errors.subject) setErrors((prev) => ({ ...prev, subject: '' }));
+                          }}
+                          disabled={submitStatus === 'submitting'}
+                          className={`w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-[#1F2937] transition-colors focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-gray-100 ${
+                            errors.subject
+                              ? 'border-[#DC2626] focus:border-[#DC2626] focus:ring-[#DC2626]/20'
+                              : 'border-[#E5E7EB] focus:border-[#12355B] focus:ring-[#12355B]/20'
+                          }`}
+                          placeholder="What can we help you with?"
+                        />
+                        {errors.subject && <p className="mt-1.5 text-xs text-[#DC2626]">{errors.subject}</p>}
                       </div>
 
                       {/* Row 3: Stay Details (Check-in Date, Check-out Date, Number of Guests) */}
@@ -708,7 +702,7 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
                             htmlFor="inquiry-checkin-date"
                             className="block text-sm font-semibold text-[#1F2937] mb-1.5"
                           >
-                            Check-in Date <span className="text-[#DC2626]">*</span>
+                            Check-in Date <span className="text-xs font-normal text-[#6B7280]">(Optional)</span>
                           </label>
                           <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#12355B]">
@@ -751,7 +745,7 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
                             htmlFor="inquiry-checkout-date"
                             className="block text-sm font-semibold text-[#1F2937] mb-1.5"
                           >
-                            Check-out Date <span className="text-[#DC2626]">*</span>
+                            Check-out Date <span className="text-xs font-normal text-[#6B7280]">(Optional)</span>
                           </label>
                           <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#12355B]">

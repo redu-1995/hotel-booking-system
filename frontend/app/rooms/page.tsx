@@ -8,7 +8,7 @@ import { RoomDetailsModal } from '../../components/rooms/RoomDetailsModal';
 import { BookingModal } from '../../components/booking/BookingModal';
 import { BookingSearchBar } from '../../components/home/BookingSearchBar';
 import { Button } from '../../components/ui/Button';
-import { ROOMS_DATA } from '../../data/hotelData';
+import { getRoomImagery } from '../../data/hotelData';
 import { Room, BookingSearchState, Reservation } from '../../types/types';
 import type { Room as ApiRoom } from '@/types';
 import { getRooms } from '@/lib/api/client';
@@ -36,8 +36,6 @@ interface RoomsPageProps {
   initialSearchState?: BookingSearchState;
   onConfirmReservation?: (reservation: Reservation) => void;
 }
-
-const roomImages = ROOMS_DATA.map((room) => room.image);
 
 function applyAvailability(rooms: Room[], availableRooms: AvailableRoom[]): Room[] {
   const availableIds = new Set(availableRooms.map((room) => room.id));
@@ -73,8 +71,7 @@ function toUiRoom(room: ApiRoom, index: number): Room {
     capacityGuests: roomType?.max_guests || 1,
     bedType: roomType?.bed_type || 'Standard bed',
     sizeSqM: 0,
-    image: roomImages[index % roomImages.length],
-    galleryImages: [roomImages[index % roomImages.length]],
+    ...getRoomImagery(typeName, category),
     keyAmenities: roomType?.amenities_list || [],
     allAmenities: roomType?.amenities_list || [],
     rating: 0,

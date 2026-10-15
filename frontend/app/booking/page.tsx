@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { TextInput, DatePickerInput, SelectDropdown, TextArea } from '../../components/ui/FormInputs';
 import { StatusBadge, AvailabilityBadge } from '../../components/ui/Badge';
 import { RoomDetailsModal } from '../../components/rooms/RoomDetailsModal';
-import { HOTEL_INFO } from '../../data/hotelData';
+import { getRoomImagery, HOTEL_INFO } from '../../data/hotelData';
 import { Room, BookingSearchState, Reservation, Inquiry } from '../../types/types';
 import type { Room as ApiRoom } from '@/types';
 import { getRooms } from '@/lib/api/client';
@@ -71,6 +71,7 @@ function toUiRoom(room: ApiRoom): Room {
 
   return {
     id: String(room.id),
+    roomTypeId: roomType?.id,
     name,
     category,
     shortDescription: roomType?.description || `Room ${room.room_number} at The Grandview Hotel.`,
@@ -79,8 +80,7 @@ function toUiRoom(room: ApiRoom): Room {
     capacityGuests: roomType?.max_guests || 1,
     bedType: roomType?.bed_type || 'Standard bed',
     sizeSqM: 0,
-    image: '',
-    galleryImages: [],
+    ...getRoomImagery(name, category),
     keyAmenities: roomType?.amenities_list || [],
     allAmenities: roomType?.amenities_list || [],
     rating: 0,
@@ -406,6 +406,11 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
     } else if (inquiryMessage.trim().length < 10) {
       errors.inquiryMessage = 'Message must be at least 10 characters long.';
     }
+    if (showOptionalStayInfo && Boolean(inquiryCheckIn) !== Boolean(inquiryCheckOut)) {
+      errors.inquiryDates = 'Please provide both preferred stay dates or leave both blank.';
+    } else if (showOptionalStayInfo && inquiryCheckIn && inquiryCheckOut && inquiryCheckOut <= inquiryCheckIn) {
+      errors.inquiryDates = 'Preferred check-out must be after check-in.';
+    }
 
     setInquiryErrors(errors);
     return Object.keys(errors).length === 0;
@@ -420,27 +425,30 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
 
     setIsSubmittingInquiry(true);
     try {
-      const finalMessage = `${inquirySubject ? `[Subject: ${inquirySubject}] ` : ''}${inquiryMessage}${
-        showOptionalStayInfo && inquiryCheckIn
-          ? ` (Preferred Stay: ${inquiryCheckIn} to ${inquiryCheckOut}, ${inquiryGuests} guests, Room: ${inquiryRoomType})`
-          : ''
-      }`;
+      const preferredRoom = showOptionalStayInfo
+        ? rooms.find((room) => room.name === inquiryRoomType) || selectedRoom
+        : selectedRoom;
+      const finalMessage = inquiryMessage.trim();
       const inquiry = await createInquiry({
         name: inquiryFullName.trim(),
-        check_in_date: inquiryCheckIn || checkIn,
-        check_out_date: inquiryCheckOut || checkOut,
-        number_of_guests: inquiryGuests,
-        message: `${inquiryEmail.trim()} | ${inquiryPhone.trim()} | ${finalMessage}`,
-        source: 'WEBSITE',
+        email: inquiryEmail.trim(),
+        phone: inquiryPhone.trim(),
+        subject: inquirySubject.trim() || inquiryType,
+        preferred_room_type: preferredRoom.roomTypeId,
+        ...(showOptionalStayInfo && inquiryCheckIn && inquiryCheckOut
+          ? { check_in_date: inquiryCheckIn, check_out_date: inquiryCheckOut }
+          : {}),
+        ...(showOptionalStayInfo ? { number_of_guests: inquiryGuests } : {}),
+        message: finalMessage,
       });
       onAddInquiry?.({
         guestName: inquiryFullName,
         email: inquiryEmail,
         phone: inquiryPhone,
-        roomType: inquiryRoomType || selectedRoom.name,
-        checkIn: inquiryCheckIn || checkIn,
-        checkOut: inquiryCheckOut || checkOut,
-        guests: inquiryGuests,
+        roomType: showOptionalStayInfo ? inquiryRoomType || selectedRoom.name : selectedRoom.name,
+        checkIn: showOptionalStayInfo ? inquiryCheckIn : '',
+        checkOut: showOptionalStayInfo ? inquiryCheckOut : '',
+        guests: showOptionalStayInfo ? inquiryGuests : 1,
         status: 'pending',
         message: finalMessage,
       });
@@ -1543,6 +1551,11 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                             }))}
                           />
                         </div>
+                        {inquiryErrors.inquiryDates && (
+                          <p className="mt-3 text-sm text-red-600" role="alert">
+                            {inquiryErrors.inquiryDates}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>

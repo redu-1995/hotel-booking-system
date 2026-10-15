@@ -23,6 +23,9 @@ class Inquiry(models.Model):
         CANCELLED = "CANCELLED", "Cancelled"
 
     name = models.CharField(max_length=150)
+    email = models.EmailField(max_length=255, blank=True, default="")
+    phone = models.CharField(max_length=30, blank=True, default="")
+    subject = models.CharField(max_length=200, blank=True, default="")
     guest = models.ForeignKey(
         "guests.Guest",
         on_delete=models.SET_NULL,
@@ -46,8 +49,8 @@ class Inquiry(models.Model):
         related_name="assigned_inquiries",
         help_text="Staff user assigned to follow up",
     )
-    check_in_date = models.DateField()
-    check_out_date = models.DateField()
+    check_in_date = models.DateField(null=True, blank=True)
+    check_out_date = models.DateField(null=True, blank=True)
     number_of_guests = models.PositiveIntegerField(default=1)
     message = models.TextField(blank=True, null=True)
     source = models.CharField(
@@ -69,6 +72,8 @@ class Inquiry(models.Model):
         ordering = ["-created_at"]
 
     def clean(self):
+        if bool(self.check_in_date) != bool(self.check_out_date):
+            raise ValidationError("Provide both stay dates or leave both blank.")
         if self.check_out_date and self.check_in_date:
             if self.check_out_date <= self.check_in_date:
                 raise ValidationError("Check-out date must be strictly after check-in date.")

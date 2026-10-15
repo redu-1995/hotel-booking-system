@@ -1,3 +1,5 @@
+import re
+
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
@@ -10,6 +12,10 @@ User = get_user_model()
 
 
 class InquirySerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(max_length=255)
+    phone = serializers.CharField(max_length=30)
+    subject = serializers.CharField(max_length=200)
+    message = serializers.CharField(min_length=10)
     guest_name = serializers.CharField(source="guest.full_name", read_only=True)
     preferred_room_type_name = serializers.CharField(
         source="preferred_room_type.name", read_only=True
@@ -24,6 +30,9 @@ class InquirySerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "name",
+            "email",
+            "phone",
+            "subject",
             "guest",
             "guest_name",
             "preferred_room_type",
@@ -56,6 +65,31 @@ class InquirySerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Name cannot be blank.")
         return value
 
+    def validate_email(self, value):
+        return value.strip().lower()
+
+    def validate_phone(self, value):
+        normalized = re.sub(r"[\s().-]", "", value)
+        if not re.fullmatch(r"\+?[0-9]{7,15}", normalized):
+            raise serializers.ValidationError(
+                "Enter a valid phone number with 7 to 15 digits."
+            )
+        return normalized
+
+    def validate_subject(self, value):
+        value = " ".join(value.split())
+        if not value:
+            raise serializers.ValidationError("Subject cannot be blank.")
+        return value
+
+    def validate_message(self, value):
+        value = value.strip()
+        if len(value) < 10:
+            raise serializers.ValidationError(
+                "Message must be at least 10 characters long."
+            )
+        return value
+
     def validate_number_of_guests(self, value):
         if value < 1:
             raise serializers.ValidationError("Number of guests must be at least 1.")
@@ -64,7 +98,11 @@ class InquirySerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         check_in = attrs.get("check_in_date", getattr(self.instance, "check_in_date", None))
         check_out = attrs.get("check_out_date", getattr(self.instance, "check_out_date", None))
-        if check_out <= check_in:
+        if (check_in is None) != (check_out is None):
+            raise serializers.ValidationError(
+                {"check_out_date": "Provide both stay dates or leave both blank."}
+            )
+        if check_in is not None and check_out is not None and check_out <= check_in:
             raise serializers.ValidationError(
                 {"check_out_date": "Check-out date must be strictly after check-in date."}
             )
@@ -92,7 +130,7 @@ class InquiryCreateSerializer(InquirySerializer):
     class Meta(InquirySerializer.Meta):
         fields = tuple(
             field for field in InquirySerializer.Meta.fields
-            if field not in ("assigned_to", "assigned_to_name", "status")
+            if field not in ("guest", "assigned_to", "assigned_to_name")
         )
 
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Room, BookingSearchState } from '../../types/types';
 import { Button } from '../ui/Button';
 import { AvailabilityBadge } from '../ui/Badge';
@@ -56,23 +56,29 @@ export const RoomDetailsModal: React.FC<RoomDetailsModalProps> = ({
   onSendInquiry,
   searchState,
 }) => {
+  const [imageSelection, setImageSelection] = useState<{ roomId: string; index: number } | null>(null);
+
   if (!isOpen || !room) return null;
 
-  const images = room.galleryImages && room.galleryImages.length > 0 ? room.galleryImages : [room.image];
-  const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
-
-  useEffect(() => {
-    setCurrentImageIndex(0);
-  }, [room?.id]);
+  const images = (room.galleryImages?.length ? room.galleryImages : [room.image])
+    .filter((image) => image.trim().length > 0);
+  const currentImageIndex = imageSelection?.roomId === room.id ? imageSelection.index : 0;
+  const currentImage = images[currentImageIndex];
 
   const handlePrevImage = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    setImageSelection((previous) => {
+      const currentIndex = previous?.roomId === room.id ? previous.index : 0;
+      return { roomId: room.id, index: currentIndex === 0 ? images.length - 1 : currentIndex - 1 };
+    });
   };
 
   const handleNextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+    setImageSelection((previous) => {
+      const currentIndex = previous?.roomId === room.id ? previous.index : 0;
+      return { roomId: room.id, index: currentIndex === images.length - 1 ? 0 : currentIndex + 1 };
+    });
   };
 
   // Booking summary calculation
@@ -123,11 +129,13 @@ export const RoomDetailsModal: React.FC<RoomDetailsModalProps> = ({
 
         {/* IMAGE GALLERY */}
         <div className="relative h-[210px] max-h-[30vh] w-full shrink-0 overflow-hidden bg-gray-900 select-none sm:h-[250px] lg:h-[280px]">
-          <img
-            src={images[currentImageIndex]}
-            alt={`${room.name} photo ${currentImageIndex + 1}`}
-            className="w-full h-full object-cover transition-opacity duration-300"
-          />
+          {currentImage && (
+            <img
+              src={currentImage}
+              alt={`${room.name} photo ${currentImageIndex + 1}`}
+              className="w-full h-full object-cover transition-opacity duration-300"
+            />
+          )}
 
           {/* Navigation Arrows */}
           {images.length > 1 && (
@@ -192,7 +200,7 @@ export const RoomDetailsModal: React.FC<RoomDetailsModalProps> = ({
             {images.map((imgUrl, idx) => (
               <button
                 key={idx}
-                onClick={() => setCurrentImageIndex(idx)}
+                onClick={() => setImageSelection({ roomId: room.id, index: idx })}
                 className={`relative w-16 sm:w-20 h-12 sm:h-14 rounded-[6px] overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
                   currentImageIndex === idx
                     ? 'border-[#12355B] ring-2 ring-[#12355B]/20 scale-102'

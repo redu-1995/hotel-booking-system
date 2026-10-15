@@ -1,11 +1,14 @@
 from django.db import transaction
 from django.db.models import Q
-from rest_framework import status, viewsets
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.bookings.models import Booking
 from apps.bookings.serializers import BookingSerializer
+from apps.guests.models import Guest
 from apps.rooms.models import Room
 
 from .models import Inquiry
@@ -55,6 +58,9 @@ class InquiryViewSet(viewsets.ModelViewSet):
 		if search:
 			queryset = queryset.filter(
 				Q(name__icontains=search)
+				| Q(email__icontains=search)
+				| Q(phone__icontains=search)
+				| Q(subject__icontains=search)
 				| Q(message__icontains=search)
 				| Q(guest__full_name__icontains=search)
 				| Q(guest__phone__icontains=search)
@@ -99,7 +105,6 @@ class InquiryViewSet(viewsets.ModelViewSet):
 				Inquiry.Status.CANCELLED,
 			},
 			Inquiry.Status.QUOTED: {
-				Inquiry.Status.CONVERTED,
 				Inquiry.Status.CANCELLED,
 			},
 		}
@@ -148,9 +153,24 @@ class InquiryViewSet(viewsets.ModelViewSet):
 				{"detail": "Only quoted inquiries can be converted."},
 				status=status.HTTP_400_BAD_REQUEST,
 			)
-		if not inquiry.guest or not inquiry.preferred_room_type:
+		if not inquiry.preferred_room_type:
 			return Response(
-				{"detail": "A guest and preferred room type are required for conversion."},
+				{"detail": "A preferred room type is required for conversion."},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
+		if not inquiry.check_in_date or not inquiry.check_out_date:
+			return Response(
+				{"detail": "Stay dates are required to create a booking."},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
+		if inquiry.check_in_date < timezone.localdate():
+			return Response(
+				{"detail": "Check-in date cannot be in the past."},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
+		if inquiry.number_of_guests > inquiry.preferred_room_type.max_guests:
+			return Response(
+				{"detail": "The preferred room type does not support this guest count."},
 				status=status.HTTP_400_BAD_REQUEST,
 			)
 
@@ -173,8 +193,30 @@ class InquiryViewSet(viewsets.ModelViewSet):
 					{"detail": "No room is available for the requested dates."},
 					status=status.HTTP_400_BAD_REQUEST,
 				)
+			guest = inquiry.guest
+			if guest is None:
+				matches = list(
+					Guest.objects.select_for_update()
+					.filter(Q(phone=inquiry.phone) | Q(email__iexact=inquiry.email))
+					.order_by("pk")[:2]
+				)
+				if len(matches) > 1:
+					return Response(
+						{
+							"detail": (
+								"The provided phone and email belong to different guest records. "
+								"Please resolve the guest profile before converting."
+							)
+						},
+						status=status.HTTP_400_BAD_REQUEST,
+					)
+				guest = matches[0] if matches else Guest.objects.create(
+					full_name=inquiry.name,
+					phone=inquiry.phone,
+					email=inquiry.email,
+				)
 			booking = Booking(
-				guest=inquiry.guest,
+				guest=guest,
 				room=room,
 				check_in_date=inquiry.check_in_date,
 				check_out_date=inquiry.check_out_date,
@@ -183,7 +225,12 @@ class InquiryViewSet(viewsets.ModelViewSet):
 				total_amount=room.room_type.base_price * inquiry.nights_count,
 				created_by=request.user,
 			)
-			booking.save()
+			try:
+				booking.save()
+			except DjangoValidationError as exc:
+				details = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+				raise serializers.ValidationError(details) from exc
+			inquiry.guest = guest
 			inquiry.status = Inquiry.Status.CONVERTED
-			inquiry.save(update_fields=("status",))
+			inquiry.save(update_fields=("guest", "status"))
 		return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
