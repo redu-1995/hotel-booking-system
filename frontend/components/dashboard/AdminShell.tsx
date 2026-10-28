@@ -7,7 +7,6 @@ import {
 	BedDouble,
 	CalendarDays,
 	ChartNoAxesColumnIncreasing,
-	ChevronRight,
 	DoorOpen,
 	LogOut,
 	Menu,
@@ -20,11 +19,12 @@ import type { LucideIcon } from "lucide-react";
 
 import { ApiError } from "@/lib/api/client";
 import { getCurrentUser, login, logout, type User } from "@/lib/api/auth";
+import { NotificationBell } from "@/components/dashboard/NotificationBell";
 
 const navigation: { href: string; label: string; icon: LucideIcon }[] = [
 	{ href: "/admin", label: "Overview", icon: ChartNoAxesColumnIncreasing },
 	{ href: "/admin/bookings", label: "Bookings", icon: CalendarDays },
-	{ href: "/dashboard/inquiries", label: "Inquiries", icon: MessageSquareText },
+	{ href: "/admin/inquiries", label: "Inquiries", icon: MessageSquareText },
 	{ href: "/admin/rooms", label: "Rooms", icon: BedDouble },
 	{ href: "/admin/guests", label: "Guests", icon: Users },
 	{ href: "/admin/payments", label: "Payments", icon: DoorOpen },
@@ -35,6 +35,13 @@ type Props = Readonly<{ children: React.ReactNode }>;
 
 export default function AdminShell({ children }: Props) {
 	const pathname = usePathname();
+	const pageTitle = pathname === "/admin" ? "Front Desk Overview"
+		: pathname.startsWith("/admin/bookings") ? "Bookings"
+			: pathname.startsWith("/admin/rooms") ? "Rooms"
+				: pathname.startsWith("/admin/inquiries") ? "Inquiries"
+				: pathname.startsWith("/admin/guests") ? "Guests"
+					: pathname.startsWith("/admin/payments") ? "Payments"
+						: pathname.startsWith("/admin/users") ? "Users" : "Hotel Operations";
 	const [user, setUser] = useState<User | null>(null);
 	const [checkingSession, setCheckingSession] = useState(true);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -121,6 +128,7 @@ export default function AdminShell({ children }: Props) {
 		<div className="min-h-screen bg-[#f2f4ef] text-[#263a31]">
 			<aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[#d8dfd7] bg-[#fafbf8] px-5 py-6 lg:flex">
 				<Link href="/admin" className="font-serif text-xl font-semibold tracking-wide text-[#29443a]">ASTERIA HOUSE</Link>
+				<p className="mt-1 px-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#858d84]">StayDirect · Admin</p>
 				<p className="mt-12 px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#858d84]">Hotel operations</p>
 				<nav aria-label="Admin navigation" className="mt-3 grid gap-1">
 					{navigation.map(({ href, label, icon: Icon }) => (
@@ -139,16 +147,24 @@ export default function AdminShell({ children }: Props) {
 			</aside>
 
 			<div className="lg:pl-64">
-				<header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-[#d8dfd7] bg-[#fafbf8]/95 px-4 backdrop-blur sm:px-7">
-					<Link href="/admin" className="font-serif text-lg font-semibold tracking-wide text-[#29443a] lg:hidden">ASTERIA HOUSE</Link>
-					<div className="hidden text-xs text-[#788279] sm:block">Front desk <ChevronRight className="mx-1 inline h-3 w-3" /> Operations</div>
-					<div className="ml-auto flex items-center gap-3">
+				<header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#d8dfd7] bg-[#fafbf8]/95 px-4 backdrop-blur sm:px-7">
+					<div className="flex min-w-0 items-center gap-3">
+						<Link href="/admin" className="font-serif text-lg font-semibold tracking-wide text-[#29443a] lg:hidden">StayDirect</Link>
+						<span className="hidden h-5 w-px bg-[#d8dfd7] lg:block" />
+						<h1 className="truncate font-serif text-lg font-semibold text-[#2e3932]">{pageTitle}</h1>
+					</div>
+					<div className="ml-auto flex items-center gap-2 sm:gap-3">
+						<NotificationBell />
 						<span className="hidden text-sm text-[#59665d] sm:inline">{user.first_name || user.username}</span>
 						<button type="button" onClick={() => setMobileMenuOpen((open) => !open)} aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileMenuOpen} className="grid h-9 w-9 place-items-center text-[#526258] hover:bg-[#edf1ea] lg:hidden">
 							{mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
 						</button>
 					</div>
 				</header>
+				<div className="flex min-h-10 items-center justify-between gap-3 bg-[#26322c] px-4 text-xs text-[#f3f5ef] sm:px-7">
+					<p className="flex items-center gap-2"><span className="size-2 rounded-full bg-[#9fbd88]" />StayDirect Management Portal <span className="hidden text-[#b8c2b9] sm:inline">· Asteria House</span></p>
+					<Link href="/" className="shrink-0 underline decoration-[#9ca99e] underline-offset-2 hover:text-white">View guest website <span aria-hidden="true">↗</span></Link>
+				</div>
 				{mobileMenuOpen && (
 					<nav aria-label="Mobile admin navigation" className="absolute inset-x-0 top-14 z-20 border-b border-[#d8dfd7] bg-[#fafbf8] p-3 shadow-md lg:hidden">
 						{navigation.map(({ href, label, icon: Icon }) => (

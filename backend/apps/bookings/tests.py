@@ -319,8 +319,15 @@ class StaffBookingAPITests(APITestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.data["confirmed_bookings"], 1)
+		self.assertEqual(response.data["checked_in_bookings"], 0)
 		self.assertEqual(response.data["todays_arrivals"], 1)
 		self.assertEqual(response.data["occupied_rooms"], 0)
+		self.assertEqual(response.data["total_rooms"], Room.objects.count())
+		self.assertEqual(
+			response.data["available_rooms"],
+			Room.objects.filter(status=Room.Status.AVAILABLE).count(),
+		)
+		self.assertEqual(response.data["occupancy_rate"], 0)
 
 	def test_check_in_and_check_out_update_booking_and_room_together(self):
 		check_in_response = self.client.post(f"/api/bookings/{self.booking.id}/check_in/")

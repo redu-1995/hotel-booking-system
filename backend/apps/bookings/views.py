@@ -2,7 +2,7 @@ from datetime import date
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import OuterRef, Q, Subquery
+from django.db.models import Count, OuterRef, Q, Subquery
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -74,11 +74,21 @@ class BookingViewSet(viewsets.ModelViewSet):
 	@action(detail=False, methods=["get"])
 	def summary(self, request):
 		today = timezone.localdate()
+		room_counts = dict(
+			Room.objects.values("status")
+			.annotate(count=Count("id"))
+			.values_list("status", "count")
+		)
+		total_rooms = sum(room_counts.values())
+		occupied_rooms = room_counts.get(Room.Status.OCCUPIED, 0)
 		return Response({
 			"date": today,
 			"total_bookings": Booking.objects.count(),
 			"confirmed_bookings": Booking.objects.filter(
 				booking_status=Booking.BookingStatus.CONFIRMED
+			).count(),
+			"checked_in_bookings": Booking.objects.filter(
+				booking_status=Booking.BookingStatus.CHECKED_IN
 			).count(),
 			"todays_arrivals": Booking.objects.filter(
 				booking_status=Booking.BookingStatus.CONFIRMED,
@@ -88,7 +98,13 @@ class BookingViewSet(viewsets.ModelViewSet):
 				booking_status=Booking.BookingStatus.CHECKED_IN,
 				check_out_date=today,
 			).count(),
-			"occupied_rooms": Room.objects.filter(status=Room.Status.OCCUPIED).count(),
+			"occupied_rooms": occupied_rooms,
+			"total_rooms": total_rooms,
+			"available_rooms": room_counts.get(Room.Status.AVAILABLE, 0),
+			"reserved_rooms": room_counts.get(Room.Status.RESERVED, 0),
+			"dirty_rooms": room_counts.get(Room.Status.DIRTY, 0),
+			"maintenance_rooms": room_counts.get(Room.Status.MAINTENANCE, 0),
+			"occupancy_rate": round(occupied_rooms * 100 / total_rooms) if total_rooms else 0,
 		})
 
 	def get_serializer_class(self):

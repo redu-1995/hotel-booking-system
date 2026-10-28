@@ -1,10 +1,12 @@
 import Link from "next/link";
 import AdminGuestsPage from "@/components/dashboard/AdminGuestsPage";
+import AdminInquiriesPage from "@/components/dashboard/AdminInquiriesPage";
 import AdminPaymentsPage from "@/components/dashboard/AdminPaymentsPage";
 import AdminUsersPage from "@/components/dashboard/AdminUsersPage";
 
 export default async function AdminSectionPlaceholder({ params }: PageProps<"/admin/[section]">) {
 	const { section } = await params;
+	if (section === "inquiries") return <AdminInquiriesPage />;
 	if (section === "guests") return <AdminGuestsPage />;
 	if (section === "payments") return <AdminPaymentsPage />;
 	if (section === "users") return <AdminUsersPage />;

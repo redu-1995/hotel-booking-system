@@ -14,15 +14,23 @@ export type BookingSummary = {
   date: string;
   total_bookings: number;
   confirmed_bookings: number;
+  checked_in_bookings: number;
   todays_arrivals: number;
   todays_departures: number;
   occupied_rooms: number;
+  total_rooms: number;
+  available_rooms: number;
+  reserved_rooms: number;
+  dirty_rooms: number;
+  maintenance_rooms: number;
+  occupancy_rate: number;
 };
 
 export type BookingFilters = {
   search?: string;
   booking_status?: BookingStatus;
   payment_status?: PaymentStatus;
+  booking_source?: string;
   check_in_date?: string;
   page?: number;
   page_size?: number;
