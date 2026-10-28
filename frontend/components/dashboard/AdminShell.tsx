@@ -13,6 +13,7 @@ import {
 	Menu,
 	MessageSquareText,
 	Users,
+	UserRoundCog,
 	X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -27,6 +28,7 @@ const navigation: { href: string; label: string; icon: LucideIcon }[] = [
 	{ href: "/admin/rooms", label: "Rooms", icon: BedDouble },
 	{ href: "/admin/guests", label: "Guests", icon: Users },
 	{ href: "/admin/payments", label: "Payments", icon: DoorOpen },
+	{ href: "/admin/users", label: "Users", icon: UserRoundCog },
 ];
 
 type Props = Readonly<{ children: React.ReactNode }>;

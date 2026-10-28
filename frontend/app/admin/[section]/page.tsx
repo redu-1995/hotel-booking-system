@@ -4,6 +4,7 @@ const sections: Record<string, string> = {
 	rooms: "Room inventory and housekeeping tools are not implemented in this admin area yet.",
 	guests: "Guest profiles and guest history are not implemented in this admin area yet.",
 	payments: "Payment review and reconciliation are not implemented in this admin area yet.",
+	users: "Staff account administration is not implemented in this admin area yet.",
 };
 
 export default async function AdminSectionPlaceholder({ params }: PageProps<"/admin/[section]">) {

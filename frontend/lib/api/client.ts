@@ -69,6 +69,13 @@ export async function apiList<T>(path: string, options?: RequestOptions): Promis
 export async function getRooms(): Promise<Room[]> {
   return apiList<Room>("/rooms/", { next: { revalidate: 60 } });
 }
+export async function getAdminRooms(filters: { search?: string; status?: string } = {}): Promise<Room[]> {
+  const params = new URLSearchParams();
+  if (filters.search) params.set("search", filters.search);
+  if (filters.status) params.set("status", filters.status);
+  const query = params.toString();
+  return apiList<Room>(`/rooms/${query ? `?${query}` : ""}`);
+}
 export async function getRoomTypes(): Promise<RoomType[]> {
   try { return await apiList<RoomType>("/room-types/", { next: { revalidate: 60 } }); } catch { return fallbackRooms.map((room) => room.room_type_details); }
 }
