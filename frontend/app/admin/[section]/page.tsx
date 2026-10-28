@@ -1,16 +1,15 @@
 import Link from "next/link";
-
-const sections: Record<string, string> = {
-	rooms: "Room inventory and housekeeping tools are not implemented in this admin area yet.",
-	guests: "Guest profiles and guest history are not implemented in this admin area yet.",
-	payments: "Payment review and reconciliation are not implemented in this admin area yet.",
-	users: "Staff account administration is not implemented in this admin area yet.",
-};
+import AdminGuestsPage from "@/components/dashboard/AdminGuestsPage";
+import AdminPaymentsPage from "@/components/dashboard/AdminPaymentsPage";
+import AdminUsersPage from "@/components/dashboard/AdminUsersPage";
 
 export default async function AdminSectionPlaceholder({ params }: PageProps<"/admin/[section]">) {
 	const { section } = await params;
-	const detail = sections[section];
-	if (!detail) return <div role="alert" className="border border-[#e7c2b9] bg-[#fff5f1] p-5 text-sm text-[#884637]">This admin section does not exist.</div>;
+	if (section === "guests") return <AdminGuestsPage />;
+	if (section === "payments") return <AdminPaymentsPage />;
+	if (section === "users") return <AdminUsersPage />;
+	const detail = section === "rooms" ? "Room inventory is available in the Rooms section." : "This admin section does not exist.";
+	if (section !== "rooms") return <div role="alert" className="border border-[#e7c2b9] bg-[#fff5f1] p-5 text-sm text-[#884637]">{detail}</div>;
 	const title = section.charAt(0).toUpperCase() + section.slice(1);
 	return (
 		<section className="max-w-3xl">
