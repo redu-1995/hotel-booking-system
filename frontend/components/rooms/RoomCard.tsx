@@ -48,6 +48,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   featuredBadge,
 }) => {
   const isUnavailable = room.availability === 'unavailable';
+  const availabilityUnknown = room.availability === 'unknown';
 
   return (
     <div
@@ -95,11 +96,13 @@ export const RoomCard: React.FC<RoomCardProps> = ({
         </div>
 
         {/* Rating chip on image bottom right */}
-        <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-full flex items-center gap-1 text-xs font-semibold text-[#1F2937] shadow-2xs">
-          <Star className="w-3 h-3 text-[#D4A853] fill-[#D4A853]" />
-          <span>{room.rating.toFixed(1)}</span>
-          <span className="text-[#6B7280] font-normal text-[11px]">({room.reviewsCount})</span>
-        </div>
+        {room.reviewsCount > 0 && (
+          <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-full flex items-center gap-1 text-xs font-semibold text-[#1F2937] shadow-2xs">
+            <Star className="w-3 h-3 text-[#D4A853] fill-[#D4A853]" />
+            <span>{room.rating.toFixed(1)}</span>
+            <span className="text-[#6B7280] font-normal text-[11px]">({room.reviewsCount})</span>
+          </div>
+        )}
       </div>
 
       {/* Card Content */}
@@ -174,7 +177,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
               onClick={() => onBookRoom(room)}
               className="w-full text-xs sm:text-sm"
             >
-              Book Now
+              {availabilityUnknown ? 'Check Dates' : 'Book Now'}
             </Button>
           )}
         </div>

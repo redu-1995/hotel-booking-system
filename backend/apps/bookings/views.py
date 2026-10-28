@@ -1,12 +1,15 @@
 from datetime import date
 
-from django.db.models import Q
 from django.conf import settings
+from django.db import transaction
+from django.db.models import OuterRef, Q, Subquery
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
+from apps.payments.models import Payment
 from apps.rooms.models import Room
 
 from .models import Booking
@@ -20,9 +23,16 @@ from .serializers import (
 from .services import expire_booking_holds
 
 
+class BookingPagination(PageNumberPagination):
+	page_size = 20
+	page_size_query_param = "page_size"
+	max_page_size = 100
+
+
 class BookingViewSet(viewsets.ModelViewSet):
 	queryset = Booking.objects.all()
 	permission_classes = (IsStaffBookingUser,)
+	pagination_class = BookingPagination
 
 	def get_queryset(self):
 		queryset = super().get_queryset().select_related(
@@ -42,6 +52,14 @@ class BookingViewSet(viewsets.ModelViewSet):
 			value = params.get(parameter)
 			if value:
 				queryset = queryset.filter(**{field: value.upper() if parameter in ("booking_status", "booking_source") else value})
+		payment_status = params.get("payment_status")
+		if payment_status:
+			latest_payment_status = Payment.objects.filter(
+				booking_id=OuterRef("pk")
+			).order_by("-submitted_at").values("status")[:1]
+			queryset = queryset.annotate(
+				latest_payment_status=Subquery(latest_payment_status)
+			).filter(latest_payment_status=payment_status.upper())
 
 		search = params.get("search")
 		if search:
@@ -52,6 +70,26 @@ class BookingViewSet(viewsets.ModelViewSet):
 				| Q(room__room_number__icontains=search)
 			)
 		return queryset
+
+	@action(detail=False, methods=["get"])
+	def summary(self, request):
+		today = timezone.localdate()
+		return Response({
+			"date": today,
+			"total_bookings": Booking.objects.count(),
+			"confirmed_bookings": Booking.objects.filter(
+				booking_status=Booking.BookingStatus.CONFIRMED
+			).count(),
+			"todays_arrivals": Booking.objects.filter(
+				booking_status=Booking.BookingStatus.CONFIRMED,
+				check_in_date=today,
+			).count(),
+			"todays_departures": Booking.objects.filter(
+				booking_status=Booking.BookingStatus.CHECKED_IN,
+				check_out_date=today,
+			).count(),
+			"occupied_rooms": Room.objects.filter(status=Room.Status.OCCUPIED).count(),
+		})
 
 	def get_serializer_class(self):
 		if self.action == "create":
@@ -192,24 +230,30 @@ class BookingViewSet(viewsets.ModelViewSet):
 
 	@action(detail=True, methods=["post"])
 	def check_in(self, request, pk=None):
-		booking = self.get_object()
-		if booking.booking_status != Booking.BookingStatus.CONFIRMED:
-			return Response({"detail": "Only confirmed bookings can be checked in."}, status=400)
-		booking.booking_status = Booking.BookingStatus.CHECKED_IN
-		booking.actual_check_in = timezone.now()
-		booking.room.status = Room.Status.OCCUPIED
-		booking.room.save(update_fields=("status",))
-		booking.save(update_fields=("booking_status", "actual_check_in"))
+		with transaction.atomic():
+			booking = Booking.objects.select_for_update().get(pk=pk)
+			self.check_object_permissions(request, booking)
+			if booking.booking_status != Booking.BookingStatus.CONFIRMED:
+				return Response({"detail": "Only confirmed bookings can be checked in."}, status=400)
+			room = Room.objects.select_for_update().get(pk=booking.room_id)
+			booking.booking_status = Booking.BookingStatus.CHECKED_IN
+			booking.actual_check_in = timezone.now()
+			room.status = Room.Status.OCCUPIED
+			room.save(update_fields=("status",))
+			booking.save(update_fields=("booking_status", "actual_check_in"))
 		return Response(BookingSerializer(booking).data)
 
 	@action(detail=True, methods=["post"])
 	def check_out(self, request, pk=None):
-		booking = self.get_object()
-		if booking.booking_status != Booking.BookingStatus.CHECKED_IN:
-			return Response({"detail": "Only checked-in bookings can be checked out."}, status=400)
-		booking.booking_status = Booking.BookingStatus.CHECKED_OUT
-		booking.actual_check_out = timezone.now()
-		booking.room.status = Room.Status.DIRTY
-		booking.room.save(update_fields=("status",))
-		booking.save(update_fields=("booking_status", "actual_check_out"))
+		with transaction.atomic():
+			booking = Booking.objects.select_for_update().get(pk=pk)
+			self.check_object_permissions(request, booking)
+			if booking.booking_status != Booking.BookingStatus.CHECKED_IN:
+				return Response({"detail": "Only checked-in bookings can be checked out."}, status=400)
+			room = Room.objects.select_for_update().get(pk=booking.room_id)
+			booking.booking_status = Booking.BookingStatus.CHECKED_OUT
+			booking.actual_check_out = timezone.now()
+			room.status = Room.Status.DIRTY
+			room.save(update_fields=("status",))
+			booking.save(update_fields=("booking_status", "actual_check_out"))
 		return Response(BookingSerializer(booking).data)

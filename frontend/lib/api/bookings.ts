@@ -1,21 +1,72 @@
 import { apiFetch, apiList } from "./client";
 
+export type BookingStatus = "HOLD" | "CONFIRMED" | "CHECKED_IN" | "CHECKED_OUT" | "CANCELLED" | "NO_SHOW";
+export type PaymentStatus = "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED";
+
+export type BookingPage = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Booking[];
+};
+
+export type BookingSummary = {
+  date: string;
+  total_bookings: number;
+  confirmed_bookings: number;
+  todays_arrivals: number;
+  todays_departures: number;
+  occupied_rooms: number;
+};
+
+export type BookingFilters = {
+  search?: string;
+  booking_status?: BookingStatus;
+  payment_status?: PaymentStatus;
+  check_in_date?: string;
+  page?: number;
+  page_size?: number;
+};
+
 export type Booking = {
   id: number;
   booking_reference: string;
   guest: number;
+  guest_details: { id: number; full_name: string; phone: string; email: string };
   room: number;
+  room_details: {
+    id: number;
+    room_number: string;
+    status: string;
+    room_type_id: number;
+    room_type_name: string;
+    max_guests: number;
+    base_price: string;
+  };
   check_in_date: string;
   check_out_date: string;
   number_of_guests: number;
   booking_source: string;
-  booking_status: string;
+  booking_status: BookingStatus;
   total_amount: string;
   advance_amount: string;
   hold_expires_at: string | null;
   nights: number;
+  total_paid: string;
   balance_due: string;
+  is_fully_paid: boolean;
+  created_by: number | null;
+  actual_check_in: string | null;
+  actual_check_out: string | null;
   created_at: string;
+  latest_payment: {
+    status: PaymentStatus;
+    amount: string;
+    transaction_reference: string | null;
+    payment_method: string;
+    submitted_at: string;
+    verified_at: string | null;
+  } | null;
 };
 
 export type GuestRegistrationPayload = {
@@ -73,6 +124,17 @@ export type BookingPaymentDetails = {
 
 export function getBookings(query = "") { return apiList<Booking>(`/bookings/${query ? `?${query}` : ""}`); }
 export function getBooking(id: number) { return apiFetch<Booking>(`/bookings/${id}/`); }
+export function getAdminBookings(filters: BookingFilters = {}) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  });
+  const query = params.toString();
+  return apiFetch<BookingPage>(`/bookings/${query ? `?${query}` : ""}`);
+}
+export function getBookingSummary() { return apiFetch<BookingSummary>("/bookings/summary/"); }
+export function checkInBooking(id: number) { return apiFetch<Booking>(`/bookings/${id}/check_in/`, { method: "POST" }); }
+export function checkOutBooking(id: number) { return apiFetch<Booking>(`/bookings/${id}/check_out/`, { method: "POST" }); }
 export function createBooking(payload: BookingPayload) { return apiFetch<Booking>("/bookings/", { method: "POST", body: payload }); }
 export function getAvailability(checkIn: string, checkOut: string, guests: number) {
   const params = new URLSearchParams({ check_in_date: checkIn, check_out_date: checkOut, number_of_guests: String(guests) });

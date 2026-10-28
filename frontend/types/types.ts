@@ -1,5 +1,5 @@
 export type StatusType = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'responded';
-export type RoomAvailability = 'available' | 'limited' | 'unavailable';
+export type RoomAvailability = 'available' | 'limited' | 'unavailable' | 'unknown';
 
 export interface Room {
   id: string;

@@ -11,4 +11,4 @@ export type RoomType = {
 };
 export type Room = { id: number; room_number: string; status: string; is_available: boolean; room_type_details: RoomType };
 export type StatusType = "pending" | "confirmed" | "cancelled" | "completed" | "responded";
-export type RoomAvailability = "available" | "limited" | "unavailable";
+export type RoomAvailability = "available" | "limited" | "unavailable" | "unknown";

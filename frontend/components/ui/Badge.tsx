@@ -84,7 +84,7 @@ export const AvailabilityBadge: React.FC<AvailabilityBadgeProps> = ({
 }) => {
   const config: Record<RoomAvailability, { label: string; bg: string; text: string; border: string; icon: React.ReactNode }> = {
     available: {
-      label: 'Available',
+      label: availableRoomsLeft ? `Available (${availableRoomsLeft})` : 'Available',
       bg: 'bg-[#DCFCE7]',
       text: 'text-[#15803D]',
       border: 'border-[#BBF7D0]',
@@ -103,6 +103,13 @@ export const AvailabilityBadge: React.FC<AvailabilityBadgeProps> = ({
       text: 'text-[#DC2626]',
       border: 'border-[#FECACA]',
       icon: <XCircle className="w-3.5 h-3.5" />,
+    },
+    unknown: {
+      label: 'Check dates',
+      bg: 'bg-[#FEF3C7]',
+      text: 'text-[#B45309]',
+      border: 'border-[#FDE68A]',
+      icon: <Clock className="w-3.5 h-3.5" />,
     },
   };
 

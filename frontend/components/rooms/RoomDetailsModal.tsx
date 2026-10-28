@@ -173,11 +173,13 @@ export const RoomDetailsModal: React.FC<RoomDetailsModalProps> = ({
                   availability={room.availability}
                   availableRoomsLeft={room.availableRoomsLeft}
                 />
-                <div className="flex items-center gap-1 text-xs text-white/90 ml-1">
-                  <Star className="w-3.5 h-3.5 fill-[#D4A853] text-[#D4A853]" />
-                  <span>{room.rating.toFixed(1)}</span>
-                  <span>({room.reviewsCount} reviews)</span>
-                </div>
+                {room.reviewsCount > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-white/90 ml-1">
+                    <Star className="w-3.5 h-3.5 fill-[#D4A853] text-[#D4A853]" />
+                    <span>{room.rating.toFixed(1)}</span>
+                    <span>({room.reviewsCount} reviews)</span>
+                  </div>
+                )}
               </div>
               <h2 className="font-serif font-bold text-2xl sm:text-3xl text-white tracking-tight">
                 {room.name}
@@ -380,7 +382,7 @@ export const RoomDetailsModal: React.FC<RoomDetailsModalProps> = ({
                 }}
                 className="w-1/2 sm:w-auto text-xs sm:text-sm"
               >
-                Book This Room
+                {room.availability === 'unknown' ? 'Check Dates' : 'Book This Room'}
               </Button>
             )}
           </div>

@@ -52,6 +52,20 @@ class BookingSerializer(serializers.ModelSerializer):
     total_paid = serializers.ReadOnlyField()
     balance_due = serializers.ReadOnlyField()
     is_fully_paid = serializers.ReadOnlyField()
+    latest_payment = serializers.SerializerMethodField()
+
+    def get_latest_payment(self, obj):
+        payment = obj.payments.first()
+        if payment is None:
+            return None
+        return {
+            "status": payment.status,
+            "amount": payment.amount,
+            "transaction_reference": payment.transaction_reference,
+            "payment_method": payment.payment_method,
+            "submitted_at": payment.submitted_at,
+            "verified_at": payment.verified_at,
+        }
 
     class Meta:
         model = Booking
@@ -78,6 +92,7 @@ class BookingSerializer(serializers.ModelSerializer):
             "total_paid",
             "balance_due",
             "is_fully_paid",
+            "latest_payment",
         )
         read_only_fields = (
             "id",
@@ -92,6 +107,7 @@ class BookingSerializer(serializers.ModelSerializer):
             "total_paid",
             "balance_due",
             "is_fully_paid",
+            "latest_payment",
             "guest_details",
             "room_details",
         )

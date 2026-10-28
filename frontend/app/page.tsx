@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Header } from '../components/layout/Header';
 import { Hero } from '../components/home/Hero';
 import { FeaturedRooms } from '../components/home/FeaturedRooms';
@@ -53,7 +53,7 @@ function roomTypeToCard(roomType: RoomType, index: number): Room {
     allAmenities: roomType.amenities_list,
     rating: 0,
     reviewsCount: 0,
-    availability: 'unavailable',
+    availability: 'unknown',
     availableRoomsLeft: 0,
     isPopular: index === 0,
   };
@@ -82,16 +82,12 @@ export default function App() {
   // Navigation state defaults to the home page so the landing experience opens on the primary journey.
   const [currentPage, setCurrentPage] = useState<NavPage>('home');
 
-  // Default dates: tomorrow to +3 days
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-  const threeDaysLater = new Date(Date.now() + 86400000 * 4).toISOString().split('T')[0];
-
-  const [searchState, setSearchState] = useState<BookingSearchState>({
-    checkIn: tomorrow,
-    checkOut: threeDaysLater,
-    guests: 2,
-    rooms: 1,
+  const [searchState, setSearchState] = useState<BookingSearchState>(() => {
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const threeDaysLater = new Date(Date.now() + 86400000 * 4).toISOString().split('T')[0];
+    return { checkIn: tomorrow, checkOut: threeDaysLater, guests: 2, rooms: 1 };
   });
+  const searchStateRef = useRef(searchState);
 
   const [isSearching, setIsSearching] = useState(false);
   const [searchResultBanner, setSearchResultBanner] = useState<string | null>(null);
@@ -107,22 +103,44 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
 
-    getRoomTypes()
-      .then((roomTypes) => {
-        if (isMounted && roomTypes.length > 0) {
-          setFeaturedRooms(roomTypes.slice(0, 6).map(roomTypeToCard));
+    const loadFeaturedRooms = async () => {
+      try {
+        const roomTypes = await getRoomTypes();
+        if (!isMounted) return;
+        const rooms = roomTypes.length > 0
+          ? roomTypes.slice(0, 6).map(roomTypeToCard)
+          : ROOMS_DATA.map((room) => ({ ...room, availability: 'unknown' as const, availableRoomsLeft: undefined }));
+        setFeaturedRooms(rooms);
+
+        try {
+          const { checkIn, checkOut, guests } = searchStateRef.current;
+          const availableRooms = await getAvailability(checkIn, checkOut, guests);
+          const currentSearch = searchStateRef.current;
+          if (
+            isMounted
+            && currentSearch.checkIn === checkIn
+            && currentSearch.checkOut === checkOut
+            && currentSearch.guests === guests
+          ) {
+            setFeaturedRooms((currentRooms) => applyAvailability(currentRooms, availableRooms));
+          }
+        } catch {
+          // Keep availability unknown when the live check cannot be completed.
         }
-      })
-      .catch(() => {
-        setFeaturedRooms(ROOMS_DATA.map((room) => ({
-          ...room,
-          availability: 'unavailable',
-          availableRoomsLeft: 0,
-        })));
-      })
-      .finally(() => {
+      } catch {
+        if (isMounted) {
+          setFeaturedRooms(ROOMS_DATA.map((room) => ({
+            ...room,
+            availability: 'unknown',
+            availableRoomsLeft: undefined,
+          })));
+        }
+      } finally {
         if (isMounted) setIsLoadingFeaturedRooms(false);
-      });
+      }
+    };
+
+    void loadFeaturedRooms();
 
     return () => {
       isMounted = false;
@@ -135,11 +153,12 @@ export default function App() {
 
   // Handlers
   const handleSearchChange = (changes: Partial<BookingSearchState>) => {
+    searchStateRef.current = { ...searchStateRef.current, ...changes };
     setSearchState((prev) => ({ ...prev, ...changes }));
     setFeaturedRooms((rooms) => rooms.map((room) => ({
       ...room,
-      availability: 'unavailable',
-      availableRoomsLeft: 0,
+      availability: 'unknown',
+      availableRoomsLeft: undefined,
     })));
   };
 

@@ -1,9 +1,13 @@
 from datetime import date, timedelta
 from decimal import Decimal
+from uuid import uuid4
 
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
+from apps.accounts.models import User
 from apps.guests.models import Guest
+from apps.payments.models import Payment
 from apps.rooms.models import Room, RoomType
 from apps.bookings.serializers import BookingCreateSerializer
 from .models import Booking
@@ -11,17 +15,19 @@ from .models import Booking
 
 class AvailabilityTests(APITestCase):
 	def setUp(self):
+		self.suffix = uuid4().hex[:10]
+		self.phone_suffix = f"{uuid4().int % 1000000000:09d}"
 		self.room_type = RoomType.objects.create(
-			name="Standard Room",
+			name=f"Standard Room {self.suffix}",
 			max_guests=2,
 			base_price=Decimal("100.00"),
 		)
-		self.first_room = Room.objects.create(room_type=self.room_type, room_number="101")
-		self.second_room = Room.objects.create(room_type=self.room_type, room_number="102")
+		self.first_room = Room.objects.create(room_type=self.room_type, room_number=f"A{self.suffix}")
+		self.second_room = Room.objects.create(room_type=self.room_type, room_number=f"B{self.suffix}")
 		self.guest = Guest.objects.create(
-			full_name="Test Guest",
-			phone="+10000000000",
-			email="guest@example.com",
+			full_name=f"Test Guest {self.suffix}",
+			phone=f"+1555{self.phone_suffix}",
+			email=f"guest-{self.suffix}@example.com",
 		)
 		self.check_in = date.today() + timedelta(days=30)
 		self.check_out = self.check_in + timedelta(days=2)
@@ -46,8 +52,11 @@ class AvailabilityTests(APITestCase):
 		)
 
 		self.assertEqual(response.status_code, 200)
-		self.assertEqual([room["id"] for room in response.data], [self.second_room.id])
-		self.assertEqual(response.data[0]["room_type_id"], self.room_type.id)
+		returned_ids = [room["id"] for room in response.data]
+		self.assertIn(self.second_room.id, returned_ids)
+		self.assertNotIn(self.first_room.id, returned_ids)
+		second_room_data = next(room for room in response.data if room["id"] == self.second_room.id)
+		self.assertEqual(second_room_data["room_type_id"], self.room_type.id)
 
 	def test_excludes_rooms_that_cannot_fit_guest_count(self):
 		response = self.client.get(
@@ -60,7 +69,9 @@ class AvailabilityTests(APITestCase):
 		)
 
 		self.assertEqual(response.status_code, 200)
-		self.assertEqual(response.data, [])
+		returned_ids = [room["id"] for room in response.data]
+		self.assertNotIn(self.first_room.id, returned_ids)
+		self.assertNotIn(self.second_room.id, returned_ids)
 
 	def test_booking_create_rechecks_availability_and_creates_fifteen_minute_hold(self):
 		from django.contrib.auth.models import AnonymousUser
@@ -187,8 +198,8 @@ class AvailabilityTests(APITestCase):
 			{
 				"guest_info": {
 					"full_name": "New Booking Guest",
-					"phone": "+1 (415) 555-0123",
-					"email": "NEW.GUEST@example.com",
+					"phone": f"+1 (415) 555-{self.phone_suffix[:4]}",
+					"email": f"NEW-{self.suffix}@example.com",
 				},
 				"room": self.first_room.id,
 				"check_in_date": self.check_in.isoformat(),
@@ -199,9 +210,9 @@ class AvailabilityTests(APITestCase):
 		)
 
 		self.assertEqual(response.status_code, 201, response.data)
-		guest = Guest.objects.get(email="new.guest@example.com")
+		guest = Guest.objects.get(email=f"new-{self.suffix}@example.com")
 		self.assertEqual(guest.full_name, "New Booking Guest")
-		self.assertEqual(guest.phone, "+14155550123")
+		self.assertEqual(guest.phone, f"+1415555{self.phone_suffix[:4]}")
 		self.assertEqual(response.data["guest"], guest.id)
 		self.assertEqual(response.data["booking_status"], Booking.BookingStatus.HOLD)
 
@@ -212,8 +223,8 @@ class AvailabilityTests(APITestCase):
 			{
 				"guest_info": {
 					"full_name": "Another Name",
-					"phone": "+14155550123",
-					"email": "GUEST@example.com",
+					"phone": f"+1415555{self.phone_suffix[:4]}",
+					"email": self.guest.email.upper(),
 				},
 				"room": self.first_room.id,
 				"check_in_date": self.check_in.isoformat(),
@@ -232,8 +243,8 @@ class AvailabilityTests(APITestCase):
 			{
 				"guest_info": {
 					"full_name": "Updated Contact Name",
-					"phone": "+10000000000",
-					"email": "different@example.com",
+					"phone": self.guest.phone,
+					"email": f"different-{self.suffix}@example.com",
 				},
 				"room": self.second_room.id,
 				"check_in_date": self.check_in.isoformat(),
@@ -245,3 +256,87 @@ class AvailabilityTests(APITestCase):
 		self.assertEqual(phone_match.status_code, 201, phone_match.data)
 		self.assertEqual(phone_match.data["guest"], self.guest.id)
 		self.assertEqual(Guest.objects.count(), guest_count)
+
+
+class StaffBookingAPITests(APITestCase):
+	def setUp(self):
+		suffix = uuid4().hex[:10]
+		self.room_type = RoomType.objects.create(
+			name=f"Admin test room {suffix}",
+			max_guests=2,
+			base_price=Decimal("125.00"),
+		)
+		self.room = Room.objects.create(
+			room_type=self.room_type,
+			room_number=f"T{suffix}",
+		)
+		self.guest = Guest.objects.create(
+			full_name="Admin Test Guest",
+			phone=f"+1555{suffix}",
+			email=f"admin-{suffix}@example.com",
+		)
+		self.staff = User.objects.create_user(
+			username=f"staff-{suffix}",
+			email=f"staff-{suffix}@example.com",
+			password="test-password",
+			is_staff=True,
+		)
+		self.client.force_authenticate(self.staff)
+		self.booking = Booking.objects.create(
+			guest=self.guest,
+			room=self.room,
+			check_in_date=timezone.localdate(),
+			check_out_date=timezone.localdate() + timedelta(days=1),
+			number_of_guests=2,
+			total_amount=Decimal("125.00"),
+			booking_status=Booking.BookingStatus.CONFIRMED,
+		)
+
+	def test_list_returns_page_and_filters_by_latest_payment_status(self):
+		Payment.objects.create(
+			booking=self.booking,
+			amount=Decimal("25.00"),
+			status=Payment.Status.FAILED,
+		)
+		latest_payment = Payment.objects.create(
+			booking=self.booking,
+			amount=Decimal("100.00"),
+			status=Payment.Status.COMPLETED,
+		)
+		response = self.client.get("/api/bookings/", {"payment_status": "COMPLETED"})
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.data["count"], 1)
+		self.assertEqual(response.data["results"][0]["id"], self.booking.id)
+		self.assertEqual(response.data["results"][0]["latest_payment"]["status"], latest_payment.status)
+		self.assertEqual(
+			self.client.get("/api/bookings/", {"payment_status": "FAILED"}).data["count"],
+			0,
+		)
+
+	def test_summary_uses_real_booking_and_room_counts(self):
+		response = self.client.get("/api/bookings/summary/")
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.data["confirmed_bookings"], 1)
+		self.assertEqual(response.data["todays_arrivals"], 1)
+		self.assertEqual(response.data["occupied_rooms"], 0)
+
+	def test_check_in_and_check_out_update_booking_and_room_together(self):
+		check_in_response = self.client.post(f"/api/bookings/{self.booking.id}/check_in/")
+		self.assertEqual(check_in_response.status_code, 200)
+		self.booking.refresh_from_db()
+		self.room.refresh_from_db()
+		self.assertEqual(self.booking.booking_status, Booking.BookingStatus.CHECKED_IN)
+		self.assertEqual(self.room.status, Room.Status.OCCUPIED)
+
+		check_out_response = self.client.post(f"/api/bookings/{self.booking.id}/check_out/")
+		self.assertEqual(check_out_response.status_code, 200)
+		self.booking.refresh_from_db()
+		self.room.refresh_from_db()
+		self.assertEqual(self.booking.booking_status, Booking.BookingStatus.CHECKED_OUT)
+		self.assertEqual(self.room.status, Room.Status.DIRTY)
+		self.assertEqual(
+			self.client.post(f"/api/bookings/{self.booking.id}/check_out/").status_code,
+			400,
+		)
