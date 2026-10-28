@@ -1,12 +1,19 @@
 from datetime import date, timedelta
 from decimal import Decimal
+import re
+from unittest.mock import patch
 from uuid import uuid4
 
+from django.core import mail
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.accounts.models import User
+from apps.bookings.access import ACCESS_COOKIE_NAME
+from apps.bookings.models import BookingAccessChallenge
 from apps.guests.models import Guest
+from apps.payments.chapa import ChapaError
 from apps.payments.models import Payment
 from apps.rooms.models import Room, RoomType
 from apps.bookings.serializers import BookingCreateSerializer
@@ -347,3 +354,129 @@ class StaffBookingAPITests(APITestCase):
 			self.client.post(f"/api/bookings/{self.booking.id}/check_out/").status_code,
 			400,
 		)
+
+
+@override_settings(
+	DEBUG=True,
+	MAILERS={"default": {"BACKEND": "django.core.mail.backends.locmem.EmailBackend", "OPTIONS": {}}},
+	CHAPA_SECRET_KEY="test-chapa-secret",
+)
+class BookingAccessTests(APITestCase):
+	def setUp(self):
+		suffix = uuid4().hex[:10]
+		self.room_type = RoomType.objects.create(
+			name=f"Recovery room type {suffix}",
+			max_guests=2,
+			base_price=Decimal("200.00"),
+		)
+		self.room = Room.objects.create(
+			room_type=self.room_type,
+			room_number=f"R{suffix}",
+		)
+		self.guest = Guest.objects.create(
+			full_name="Recovery Guest",
+			phone=f"+1555{uuid4().int % 1000000000:09d}",
+			email=f"recovery-{suffix}@example.com",
+		)
+		self.booking = Booking.objects.create(
+			guest=self.guest,
+			room=self.room,
+			check_in_date=timezone.localdate() + timedelta(days=4),
+			check_out_date=timezone.localdate() + timedelta(days=6),
+			number_of_guests=2,
+			total_amount=Decimal("400.00"),
+			booking_status=Booking.BookingStatus.HOLD,
+			hold_expires_at=timezone.now() + timedelta(minutes=15),
+		)
+
+	def request_code(self):
+		return self.client.post(
+			"/api/booking-access/request-code/",
+			{"booking_reference": self.booking.booking_reference, "email": self.guest.email},
+			format="json",
+		)
+
+	def verify_code(self):
+		self.request_code()
+		match = re.search(r"verification code is (\d{6})", mail.outbox[-1].body)
+		self.assertIsNotNone(match)
+		return self.client.post(
+			"/api/booking-access/verify-code/",
+			{
+				"booking_reference": self.booking.booking_reference,
+				"email": self.guest.email,
+				"code": match.group(1),
+			},
+			format="json",
+		)
+
+	def test_code_request_uses_same_response_for_matching_and_unknown_booking(self):
+		unknown = self.client.post(
+			"/api/booking-access/request-code/",
+			{"booking_reference": "BK-UNKNOWN", "email": self.guest.email},
+			format="json",
+		)
+		matching = self.request_code()
+
+		self.assertEqual(unknown.status_code, matching.status_code)
+		self.assertEqual(unknown.data, matching.data)
+		self.assertEqual(len(mail.outbox), 1)
+		self.assertEqual(mail.outbox[0].to, [self.guest.email])
+
+	def test_code_verification_creates_single_use_http_only_booking_access(self):
+		self.assertEqual(self.verify_code().status_code, 200)
+		self.assertIn(ACCESS_COOKIE_NAME, self.client.cookies)
+		self.assertTrue(self.client.cookies[ACCESS_COOKIE_NAME]["httponly"])
+		self.assertNotIn("booking_access_token", self.client.post(
+			"/api/booking-access/verify-code/",
+			{
+				"booking_reference": self.booking.booking_reference,
+				"email": self.guest.email,
+				"code": "000000",
+			},
+			format="json",
+		).data)
+
+		response = self.client.get("/api/booking-access/booking/")
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.data["booking_reference"], self.booking.booking_reference)
+		self.assertTrue(response.data["can_retry_payment"])
+
+	def test_retry_payment_reuses_existing_checkout_without_duplicate_booking(self):
+		self.verify_code()
+		with patch("apps.bookings.access.initialize_transaction", return_value="https://chapa.example/checkout") as initialize:
+			first = self.client.post("/api/booking-access/retry-payment/", format="json")
+			second = self.client.post("/api/booking-access/retry-payment/", format="json")
+
+		self.assertEqual(first.status_code, 200)
+		self.assertFalse(first.data["reused"])
+		self.assertEqual(second.status_code, 200)
+		self.assertTrue(second.data["reused"])
+		self.assertEqual(first.data["checkout_url"], second.data["checkout_url"])
+		self.assertEqual(initialize.call_count, 1)
+		self.assertEqual(Booking.objects.filter(guest=self.guest).count(), 1)
+		self.assertEqual(Payment.objects.filter(booking=self.booking).count(), 1)
+
+	def test_expired_hold_cannot_be_extended_or_paid(self):
+		self.verify_code()
+		self.booking.hold_expires_at = timezone.now() - timedelta(seconds=1)
+		self.booking.save(update_fields=("hold_expires_at",))
+
+		response = self.client.post("/api/booking-access/retry-payment/", format="json")
+
+		self.assertEqual(response.status_code, 409)
+		self.assertEqual(Payment.objects.filter(booking=self.booking).count(), 0)
+		self.assertLessEqual(self.booking.hold_expires_at, timezone.now())
+
+	def test_retry_attempts_are_limited_per_booking(self):
+		self.verify_code()
+		with patch("apps.bookings.access.initialize_transaction", side_effect=ChapaError("failed")):
+			for _ in range(3):
+				response = self.client.post("/api/booking-access/retry-payment/", format="json")
+				self.assertEqual(response.status_code, 502)
+			limited = self.client.post("/api/booking-access/retry-payment/", format="json")
+
+		self.assertEqual(limited.status_code, 429)
+		self.assertEqual(Payment.objects.filter(booking=self.booking).count(), 3)
+		challenge = BookingAccessChallenge.objects.get(booking=self.booking)
+		self.assertEqual(challenge.payments_in_window, 3)

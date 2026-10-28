@@ -174,6 +174,12 @@ export default async function ConfirmationPage({ params: routeParams, searchPara
                   Return to payment
                 </Link>
               )}
+              <Link
+                href="/booking/lookup"
+                className="mt-4 inline-flex min-h-11 items-center justify-center border border-[#D5D0C7] px-5 text-sm font-semibold text-[#35463d] hover:bg-white"
+              >
+                Manage an existing booking
+              </Link>
             </>
           )}
 

@@ -510,6 +510,7 @@ export const RoomsPage: React.FC<RoomsPageProps> = ({
                   onViewDetails={() => setSelectedRoomForDetails(room)}
                   onBookRoom={() => setSelectedRoomForBooking(room)}
                   onSendInquiry={() => onOpenInquiry(room.name)}
+                  showAvailabilityCount={false}
                 />
               ))}
             </div>

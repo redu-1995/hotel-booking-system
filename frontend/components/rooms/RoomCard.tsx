@@ -24,6 +24,7 @@ interface RoomCardProps {
   onBookRoom: (room: Room) => void;
   onSendInquiry?: (room: Room) => void;
   featuredBadge?: string;
+  showAvailabilityCount?: boolean;
 }
 
 // Map amenity names to icons
@@ -46,6 +47,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   onBookRoom,
   onSendInquiry,
   featuredBadge,
+  showAvailabilityCount = true,
 }) => {
   const isUnavailable = room.availability === 'unavailable';
   const availabilityUnknown = room.availability === 'unknown';
@@ -83,7 +85,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
         <div className="absolute top-3.5 right-3.5">
           <AvailabilityBadge
             availability={room.availability}
-            availableRoomsLeft={room.availableRoomsLeft}
+            availableRoomsLeft={showAvailabilityCount ? room.availableRoomsLeft : undefined}
           />
         </div>
 

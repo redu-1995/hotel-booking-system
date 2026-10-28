@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { HOTEL_INFO } from '../../data/hotelData';
 import { Button } from '../ui/Button';
-import { Menu, X, Phone, Compass, CalendarCheck, Sparkles } from 'lucide-react';
+import { Menu, X, Phone, CalendarCheck, Sparkles, Search } from 'lucide-react';
 
 export type NavPage = 'home' | 'rooms' | 'about' | 'booking' | 'facilities' | 'inquiry';
 
@@ -90,6 +90,15 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <CalendarCheck className="w-3 h-3 text-[#D4A853]" />
               <span>Inquiry Status Lookup</span>
+            </button>
+            <span className="text-white/30">|</span>
+            <button
+              type="button"
+              onClick={() => router.push('/booking/lookup')}
+              className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+            >
+              <Search className="w-3 h-3 text-[#D4A853]" />
+              <span>Find a Booking</span>
             </button>
             {onOpenDesignSystemClick && (
               <>
@@ -332,6 +341,16 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 Send Booking Inquiry
               </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  router.push('/booking/lookup');
+                }}
+                className="inline-flex min-h-11 items-center justify-center gap-2 border border-[#12355B] px-4 text-sm font-semibold text-[#12355B] hover:bg-[#12355B]/5"
+              >
+                <Search className="h-4 w-4" />Find an Existing Booking
+              </button>
               {onOpenDesignSystemClick && (
                 <button
                   onClick={() => {

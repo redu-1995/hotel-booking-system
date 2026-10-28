@@ -151,3 +151,29 @@ class Booking(models.Model):
     @property
     def is_fully_paid(self) -> bool:
         return self.total_paid >= self.total_amount
+
+
+class BookingAccessChallenge(models.Model):
+    booking = models.OneToOneField(
+        Booking,
+        on_delete=models.CASCADE,
+        related_name="access_challenge",
+    )
+    code_digest = models.CharField(max_length=64, blank=True)
+    code_expires_at = models.DateTimeField(null=True, blank=True)
+    code_attempts = models.PositiveSmallIntegerField(default=0)
+    last_code_sent_at = models.DateTimeField(null=True, blank=True)
+    request_window_started_at = models.DateTimeField(null=True, blank=True)
+    requests_in_window = models.PositiveSmallIntegerField(default=0)
+    payment_window_started_at = models.DateTimeField(null=True, blank=True)
+    payments_in_window = models.PositiveSmallIntegerField(default=0)
+    access_token_digest = models.CharField(max_length=64, blank=True, db_index=True)
+    access_expires_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "booking_access_challenges"
+
+    def __str__(self) -> str:
+        return f"Booking access challenge for {self.booking.booking_reference}"
