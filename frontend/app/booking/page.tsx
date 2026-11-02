@@ -51,6 +51,14 @@ interface BookingInquiryPageProps {
   onAddInquiry?: (inquiry: Omit<Inquiry, 'id' | 'referenceNumber' | 'createdAt'>) => void;
 }
 
+type BookingStep = 'search' | 'select-room' | 'details';
+
+const BOOKING_STEPS: { id: BookingStep; label: string }[] = [
+  { id: 'search', label: 'Search dates' },
+  { id: 'select-room', label: 'Choose room' },
+  { id: 'details', label: 'Guest details' },
+];
+
 function markAvailableRooms(rooms: Room[], availableRoomIds: number[]): Room[] {
   const availableIds = new Set(availableRoomIds);
   return rooms.map((room) => ({
@@ -113,11 +121,14 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [searchNotification, setSearchNotification] = useState<string | null>(null);
   const [availableRoomIds, setAvailableRoomIds] = useState<number[] | null>(null);
+  const [availabilitySearched, setAvailabilitySearched] = useState(false);
+  const [bookingStep, setBookingStep] = useState<BookingStep>('search');
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
 
-  // 3. Selected room for booking
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  // 3. Rooms available for the current search
   const [rooms, setRooms] = useState<Room[]>([]);
   const [roomsError, setRoomsError] = useState<string | null>(null);
+  const [inquiryRoomType, setInquiryRoomType] = useState<string>('');
 
   useEffect(() => {
     let isMounted = true;
@@ -131,12 +142,6 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
         }
         const loadedRooms = apiRooms.map(toUiRoom);
         setRooms(loadedRooms);
-        setSelectedRoom((currentRoom) => {
-          const matchingRoom = initialRoomId
-            ? loadedRooms.find((room) => room.id === initialRoomId)
-            : undefined;
-          return matchingRoom || loadedRooms.find((room) => room.category === 'deluxe') || loadedRooms[0] || currentRoom;
-        });
         if (!initialSearchState) return;
         try {
           const availableRooms = await getAvailability(
@@ -148,6 +153,15 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
           const availableIds = availableRooms.map((room) => room.id);
           setAvailableRoomIds(availableIds);
           setRooms(markAvailableRooms(loadedRooms, availableIds));
+          setAvailabilitySearched(true);
+          setBookingStep('select-room');
+          const requestedRoom = initialRoomId
+            ? loadedRooms.find((room) => room.id === initialRoomId && availableIds.includes(Number(room.id)))
+            : undefined;
+          if (requestedRoom) {
+            setSelectedRoomId(requestedRoom.id);
+            setInquiryRoomType(requestedRoom.name);
+          }
         } catch (error) {
           if (isMounted) {
             setSearchNotification(error instanceof Error ? error.message : 'Unable to check availability.');
@@ -189,7 +203,6 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   const [inquiryCheckIn, setInquiryCheckIn] = useState<string>('');
   const [inquiryCheckOut, setInquiryCheckOut] = useState<string>('');
   const [inquiryGuests, setInquiryGuests] = useState<number>(2);
-  const [inquiryRoomType, setInquiryRoomType] = useState<string>('');
   const [inquiryErrors, setInquiryErrors] = useState<Record<string, string>>({});
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState<boolean>(false);
   const [inquirySuccessData, setInquirySuccessData] = useState<{
@@ -201,10 +214,6 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
 
   // 6. UI utility state
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (selectedRoom) setInquiryRoomType((currentRoomType) => currentRoomType || selectedRoom.name);
-  }, [selectedRoom]);
 
   // Calculate nights
   const calculateNights = () => {
@@ -220,7 +229,6 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   };
 
   const nights = calculateNights();
-  const subtotal = selectedRoom ? selectedRoom.pricePerNight * nights : 0;
 
   // Format date helper: "12 June 2026"
   const formatDateFriendly = (dateStr: string) => {
@@ -250,14 +258,15 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
     }
   };
 
+  useEffect(() => {
+    if (bookingStep === 'details') scrollToSection('booking-details-section');
+  }, [bookingStep]);
+
   // Filter available rooms based on criteria
   const availableRoomsList = useMemo(() => {
     return rooms.filter((room) => {
       // Category filter
       if (preferredCategory !== 'all' && room.category !== preferredCategory) {
-        return false;
-      }
-      if (availableRoomIds && !availableRoomIds.includes(Number(room.id))) {
         return false;
       }
       // Capacity filter
@@ -268,16 +277,47 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
     });
   }, [rooms, availableRoomIds, preferredCategory, guestsCount]);
 
+  const availableRoomCount = availableRoomIds
+    ? availableRoomsList.filter((room) => availableRoomIds.includes(Number(room.id))).length
+    : 0;
+  const selectedRoom = availableRoomIds?.includes(Number(selectedRoomId))
+    ? availableRoomsList.find((room) => room.id === selectedRoomId) ?? null
+    : null;
+  const subtotal = selectedRoom ? selectedRoom.pricePerNight * nights : 0;
+
+  const invalidateAvailability = () => {
+    setAvailableRoomIds(null);
+    setAvailabilitySearched(false);
+    setSelectedRoomId(null);
+    setBookingStep('search');
+    setSearchNotification(null);
+    setBookingErrors({});
+  };
+
   // Handle Availability Search
   const handleCheckAvailability = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsSearching(true);
+    setAvailableRoomIds(null);
+    setAvailabilitySearched(false);
+    setSelectedRoomId(null);
+    setBookingStep('search');
     setSearchNotification(null);
     try {
       const availableRooms = await getAvailability(checkIn, checkOut, guestsCount);
       const availableIds = availableRooms.map((room) => room.id);
       setAvailableRoomIds(availableIds);
       setRooms((currentRooms) => markAvailableRooms(currentRooms, availableIds));
+      setAvailabilitySearched(true);
+      setBookingStep('select-room');
+      const requestedRoom = initialRoomId
+        ? rooms.find((room) => room.id === initialRoomId && availableIds.includes(Number(room.id)))
+        : undefined;
+      if (requestedRoom) {
+        setSelectedRoomId(requestedRoom.id);
+        setInquiryRoomType(requestedRoom.name);
+        setBookingStep('details');
+      }
       setSearchNotification(
         `Found ${availableRooms.length} rooms matching your dates (${formatDateFriendly(checkIn)} - ${formatDateFriendly(checkOut)}) for ${guestsCount} guest(s).`
       );
@@ -291,8 +331,10 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
 
   // Handle Room Selection for Booking
   const handleSelectRoomForBooking = (room: Room) => {
-    setSelectedRoom(room);
-    scrollToSection('booking-details-section');
+    if (!availabilitySearched || !availableRoomIds?.includes(Number(room.id))) return;
+    setSelectedRoomId(room.id);
+    setInquiryRoomType(room.name);
+    setBookingStep('details');
   };
 
   // Validate Booking Form
@@ -419,7 +461,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
   // Submit Inquiry
   const handleInquirySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRoom || !validateInquiryForm()) {
+    if (!validateInquiryForm()) {
       return;
     }
 
@@ -434,7 +476,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
         email: inquiryEmail.trim(),
         phone: inquiryPhone.trim(),
         subject: inquirySubject.trim() || inquiryType,
-        preferred_room_type: preferredRoom.roomTypeId,
+        ...(preferredRoom?.roomTypeId ? { preferred_room_type: preferredRoom.roomTypeId } : {}),
         ...(showOptionalStayInfo && inquiryCheckIn && inquiryCheckOut
           ? { check_in_date: inquiryCheckIn, check_out_date: inquiryCheckOut }
           : {}),
@@ -445,7 +487,9 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
         guestName: inquiryFullName,
         email: inquiryEmail,
         phone: inquiryPhone,
-        roomType: showOptionalStayInfo ? inquiryRoomType || selectedRoom.name : selectedRoom.name,
+        roomType: showOptionalStayInfo
+          ? inquiryRoomType || preferredRoom?.name || 'Any Room'
+          : preferredRoom?.name || 'Any Room',
         checkIn: showOptionalStayInfo ? inquiryCheckIn : '',
         checkOut: showOptionalStayInfo ? inquiryCheckOut : '',
         guests: showOptionalStayInfo ? inquiryGuests : 1,
@@ -473,7 +517,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
     setTimeout(() => setCopiedRef(null), 2500);
   };
 
-  if (!selectedRoom) {
+  if (rooms.length === 0) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#F8F7F4] px-6 text-center">
         <div>
@@ -630,6 +674,29 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
           id="direct-booking-section"
           className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
         >
+          <ol aria-label="Booking steps" className="mb-6 grid grid-cols-3 border-y border-[#E5E7EB] bg-white">
+            {BOOKING_STEPS.map((step, index) => {
+              const activeIndex = BOOKING_STEPS.findIndex((item) => item.id === bookingStep);
+              const isCurrent = step.id === bookingStep;
+              const isComplete = index < activeIndex;
+              return (
+                <li
+                  key={step.id}
+                  aria-current={isCurrent ? 'step' : undefined}
+                  className={`flex items-center justify-center gap-2 border-b-2 px-2 py-3 text-xs sm:text-sm ${
+                    isCurrent
+                      ? 'border-[#12355B] font-semibold text-[#12355B]'
+                      : isComplete
+                        ? 'border-[#5F8067] text-[#45634d]'
+                        : 'border-transparent text-[#7B8185]'
+                  }`}
+                >
+                  <span className="font-mono">0{index + 1}</span>
+                  <span>{step.label}</span>
+                </li>
+              );
+            })}
+          </ol>
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 sm:p-8 md:p-10 shadow-sm">
             {/* Section Header */}
             <div className="mb-8">
@@ -657,8 +724,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                     min={new Date().toISOString().split('T')[0]}
                     onChange={(e) => {
                       setCheckIn(e.target.value);
-                      setAvailableRoomIds(null);
-                      setRooms((currentRooms) => markAvailableRooms(currentRooms, []));
+                      invalidateAvailability();
                     }}
                     required
                   />
@@ -673,8 +739,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                     min={checkIn || tomorrow}
                     onChange={(e) => {
                       setCheckOut(e.target.value);
-                      setAvailableRoomIds(null);
-                      setRooms((currentRooms) => markAvailableRooms(currentRooms, []));
+                      invalidateAvailability();
                     }}
                     required
                   />
@@ -689,8 +754,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                     value={guestsCount}
                     onChange={(e) => {
                       setGuestsCount(Number(e.target.value));
-                      setAvailableRoomIds(null);
-                      setRooms((currentRooms) => markAvailableRooms(currentRooms, []));
+                      invalidateAvailability();
                     }}
                     options={[
                       { value: 1, label: '1 Guest', sublabel: 'Solo' },
@@ -709,7 +773,14 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                     label="Preferred Room Type"
                     leftIcon={<Bed className="w-4 h-4" />}
                     value={preferredCategory}
-                    onChange={(e) => setPreferredCategory(e.target.value)}
+                    onChange={(e) => {
+                      const nextCategory = e.target.value;
+                      setPreferredCategory(nextCategory);
+                      if (selectedRoom && nextCategory !== 'all' && selectedRoom.category !== nextCategory) {
+                        setSelectedRoomId(null);
+                        setBookingStep('select-room');
+                      }
+                    }}
                     options={[
                       { value: 'all', label: 'All Room Types' },
                       { value: 'standard', label: 'Standard Rooms' },
@@ -773,6 +844,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
         </section>
 
         {/* 5. AVAILABLE ROOMS RESULTS */}
+        {availabilitySearched && (
         <section
           id="available-rooms-results"
           className="py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
@@ -788,29 +860,31 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
               </h2>
               <p className="text-sm text-[#6B7280]">
                 {availableRoomIds
-                  ? `${availableRoomIds.length} rooms available for your dates. ${availableRoomsList.length} room options shown.`
+                  ? `${availableRoomCount} rooms available for your dates. ${availableRoomsList.length} matching room options shown.`
                   : 'Check availability to see which rooms can be booked for your dates.'}
               </p>
             </div>
 
-            {/* Currently selected room badge */}
-            <div className="p-2.5 rounded-[8px] bg-white border border-[#E5E7EB] inline-flex items-center gap-2 text-xs">
-              <span className="text-[#6B7280]">Currently Selected:</span>
-              <strong className="text-[#12355B] font-semibold">{selectedRoom.name}</strong>
-              <button
-                type="button"
-                onClick={() => scrollToSection('booking-details-section')}
-                className="ml-1 text-xs text-[#2563EB] hover:underline font-medium"
-              >
-                Proceed to Details &rarr;
-              </button>
-            </div>
+            {selectedRoom ? (
+              <div className="p-2.5 rounded-[8px] bg-white border border-[#E5E7EB] inline-flex items-center gap-2 text-xs">
+                <span className="text-[#6B7280]">Selected room:</span>
+                <strong className="text-[#12355B] font-semibold">{selectedRoom.name}</strong>
+                <span className="ml-1 text-[#45634d]">Guest details are ready below.</span>
+              </div>
+            ) : (
+              <p className="text-sm text-[#6B7280]">Select an available room to continue.</p>
+            )}
           </div>
 
           {/* Rooms Grid */}
+          {availableRoomsList.length === 0 ? (
+            <div className="border border-dashed border-[#D5D0C7] bg-white px-6 py-10 text-center text-sm text-[#6B7280]">
+              No rooms match this search and filter. Adjust your stay details or room type and search again.
+            </div>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {availableRoomsList.map((room) => {
-              const isCurrentSelection = selectedRoom.id === room.id;
+              const isCurrentSelection = selectedRoom?.id === room.id;
               const isUnavailable = availableRoomIds
                 ? !availableRoomIds.includes(Number(room.id))
                 : room.availability === 'unavailable';
@@ -947,9 +1021,12 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
               );
             })}
           </div>
+          )}
         </section>
+        )}
 
         {/* 6. BOOKING DETAILS & 7. BOOKING SUMMARY SECTION (Responsive 2-column) */}
+        {selectedRoom && bookingStep === 'details' && (
         <section
           id="booking-details-section"
           className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
@@ -977,7 +1054,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
               </p>
 
               {/* Reference Box */}
-              <div className="p-4 sm:p-5 rounded-[12px] bg-[#F8F7F4] border border-[#E5E7EB] max-w-md mx-auto mb-8 text-left">
+                  <div className="p-4 sm:p-5 rounded-[12px] bg-[#F8F7F4] border border-[#E5E7EB] max-w-md mx-auto mb-8 text-left">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs uppercase tracking-wider text-[#6B7280] font-semibold">
                     Booking Reference
@@ -1018,7 +1095,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                     </strong>
                   </div>
                   <div className="flex justify-between">
-                    <span>Estimated Total:</span>
+                    <span>Room total before taxes/fees:</span>
                     <strong className="text-[#12355B] font-bold">
                       ETB {bookingSuccessData.reservation.totalPrice.toLocaleString()}
                     </strong>
@@ -1099,7 +1176,10 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                       </div>
                       <button
                         type="button"
-                        onClick={() => scrollToSection('direct-booking-section')}
+                        onClick={() => {
+                          invalidateAvailability();
+                          scrollToSection('direct-booking-section');
+                        }}
                         className="shrink-0 text-xs text-[#2563EB] hover:underline font-medium"
                       >
                         Change stay
@@ -1107,7 +1187,10 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                     </div>
                     <button
                       type="button"
-                      onClick={() => scrollToSection('available-rooms-results')}
+                      onClick={() => {
+                        setBookingStep('select-room');
+                        scrollToSection('available-rooms-results');
+                      }}
                       className="mt-3 text-xs text-[#2563EB] hover:underline font-medium"
                     >
                       Change room
@@ -1223,10 +1306,18 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                       {nights} {nights === 1 ? 'Night' : 'Nights'}
                     </strong>
                   </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#6B7280]">Room subtotal:</span>
+                    <strong className="text-[#1F2937] font-semibold">ETB {subtotal.toLocaleString()}</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#6B7280]">Taxes & fees:</span>
+                    <strong className="text-[#1F2937] font-semibold">Not included</strong>
+                  </div>
                 </div>
 
                 <div className="py-4 flex items-baseline justify-between mb-4">
-                  <span className="text-sm font-semibold text-[#12355B]">Total</span>
+                  <span className="text-sm font-semibold text-[#12355B]">Total due before taxes/fees</span>
                   <div className="text-right">
                     <span className="font-serif text-2xl sm:text-3xl font-bold text-[#12355B]">
                       ETB {subtotal.toLocaleString()}
@@ -1267,6 +1358,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
             </div>
           )}
         </section>
+        )}
 
         {/* 8. INQUIRY SECTION & 9. INQUIRY FORM */}
         <section
@@ -1678,7 +1770,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                 </p>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#25D366]/10 text-[#128C7E] text-xs font-semibold mt-1">
                   <MessageCircle className="w-3.5 h-3.5" />
-                  <span>WhatsApp: +1 (800) 458-7299</span>
+                  <span>WhatsApp: +251 900 999 999</span>
                 </div>
               </div>
               <div className="pt-4 text-xs text-[#6B7280]">

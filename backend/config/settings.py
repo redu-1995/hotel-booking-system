@@ -210,5 +210,5 @@ DEFAULT_FROM_EMAIL = config(
 HOTEL_NOTIFICATION_EMAIL = config("HOTEL_NOTIFICATION_EMAIL", default="")
 HOTEL_CONTACT_PHONE = config(
     "HOTEL_CONTACT_PHONE",
-    default="+1 (800) 458-7200",
+    default="+251 900 999 999",
 )

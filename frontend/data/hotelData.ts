@@ -5,7 +5,7 @@ export const HOTEL_INFO = {
   fullName: 'The Grandview Hotel & Suites',
   tagline: 'Refined Comfort in the Heart of the City',
   address: '450 Oceanfront Boulevard, Coastal District, CA 90291',
-  phone: '+1 (800) 458-7200',
+  phone: '+251 900 999 999',
   email: 'reservations@thegrandviewhotel.com',
   inquiryEmail: 'inquiries@thegrandviewhotel.com',
   conciergeHours: '24/7 Front Desk & Concierge Services',
