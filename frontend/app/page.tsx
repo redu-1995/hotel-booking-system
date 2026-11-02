@@ -292,21 +292,7 @@ export default function App() {
           onConfirmReservation={handleConfirmReservation}
         />
 
-        {/* Floating Design System & Component Library Toggle */}
-        <aside
-          aria-label="Component specifications"
-          className="fixed bottom-5 right-5 z-30"
-        >
-          <button
-            onClick={() => setIsDesignSystemModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[#12355B] text-white text-xs font-semibold shadow-lg hover:bg-[#0d2744] hover:shadow-xl transition-all border border-white/20 active:scale-95 cursor-pointer"
-            title="Inspect Figma reusable components and variants"
-          >
-            <Layers className="w-4 h-4 text-[#D4A853]" />
-            <span className="hidden sm:inline">Figma Components & UI Specs</span>
-            <span className="sm:hidden">UI Specs</span>
-          </button>
-        </aside>
+      
 
         <DesignSystemModal
           isOpen={isDesignSystemModalOpen}
@@ -334,21 +320,7 @@ export default function App() {
           onConfirmReservation={handleConfirmReservation}
         />
 
-        {/* Floating Design System & Component Library Toggle */}
-        <aside
-          aria-label="Component specifications"
-          className="fixed bottom-5 right-5 z-30"
-        >
-          <button
-            onClick={() => setIsDesignSystemModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[#12355B] text-white text-xs font-semibold shadow-lg hover:bg-[#0d2744] hover:shadow-xl transition-all border border-white/20 active:scale-95 cursor-pointer"
-            title="Inspect Figma reusable components and variants"
-          >
-            <Layers className="w-4 h-4 text-[#D4A853]" />
-            <span className="hidden sm:inline">Figma Components & UI Specs</span>
-            <span className="sm:hidden">UI Specs</span>
-          </button>
-        </aside>
+       
 
         <DesignSystemModal
           isOpen={isDesignSystemModalOpen}
@@ -377,22 +349,8 @@ export default function App() {
           onConfirmReservation={handleConfirmReservation}
         />
 
-        {/* Floating Design System & Component Library Toggle */}
-        <aside
-          aria-label="Component specifications"
-          className="fixed bottom-5 right-5 z-30"
-        >
-          <button
-            onClick={() => setIsDesignSystemModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[#12355B] text-white text-xs font-semibold shadow-lg hover:bg-[#0d2744] hover:shadow-xl transition-all border border-white/20 active:scale-95 cursor-pointer"
-            title="Inspect Figma reusable components and variants"
-          >
-            <Layers className="w-4 h-4 text-[#D4A853]" />
-            <span className="hidden sm:inline">Figma Components & UI Specs</span>
-            <span className="sm:hidden">UI Specs</span>
-          </button>
-        </aside>
-
+        
+        
         <DesignSystemModal
           isOpen={isDesignSystemModalOpen}
           onClose={() => setIsDesignSystemModalOpen(false)}
@@ -469,21 +427,7 @@ export default function App() {
         onNavigate={(page) => setCurrentPage(page)}
       />
 
-      {/* Floating Design System & Component Library Toggle */}
-      <aside
-        aria-label="Component specifications"
-        className="fixed bottom-5 right-5 z-30"
-      >
-        <button
-          onClick={() => setIsDesignSystemModalOpen(true)}
-          className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[#12355B] text-white text-xs font-semibold shadow-lg hover:bg-[#0d2744] hover:shadow-xl transition-all border border-white/20 active:scale-95 cursor-pointer"
-          title="Inspect Figma reusable components and variants"
-        >
-          <Layers className="w-4 h-4 text-[#D4A853]" />
-          <span className="hidden sm:inline">Figma Components & UI Specs</span>
-          <span className="sm:hidden">UI Specs</span>
-        </button>
-      </aside>
+     
 
       {/* Modals */}
       <RoomDetailsModal

@@ -1819,7 +1819,7 @@ export const BookingInquiryPage: React.FC<BookingInquiryPageProps> = ({
                 variant="secondary"
                 size="lg"
                 onClick={() => scrollToSection('inquiry-section-anchor')}
-                className="w-full sm:w-auto border-white/30 text-white hover:bg-white/10"
+                className="w-full sm:w-auto bg-white/10 hover:bg-white text-white hover:text-[#12355B] border-white/40 shadow-sm"
               >
                 Send an Inquiry
               </Button>

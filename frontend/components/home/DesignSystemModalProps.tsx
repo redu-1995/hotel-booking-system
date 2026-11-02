@@ -30,28 +30,7 @@ export const DesignSystemModal: React.FC<DesignSystemModalProps> = ({
         className="relative w-full max-w-5xl bg-white rounded-[12px] shadow-2xl border border-[#E5E7EB] overflow-hidden my-6 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header */}
-        <div className="bg-[#12355B] text-white p-6 flex items-center justify-between border-b border-white/10 shrink-0">
-          <div>
-            <div className="flex items-center gap-2 text-xs text-[#D4A853] font-semibold uppercase tracking-wider">
-              <Layers className="w-3.5 h-3.5" /> Component Architecture & Specs
-            </div>
-            <h2 className="font-serif font-bold text-2xl mt-1">
-              Figma Component Library & Variants
-            </h2>
-            <p className="text-xs text-white/80 mt-0.5">
-              Reusable UI atoms, inputs, status badges, and card variants aligned with hotel design tokens.
-            </p>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-            aria-label="Close modal"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        
 
         {/* Tab Navigation */}
         <div className="flex items-center gap-1 p-3 bg-[#F8F7F4] border-b border-[#E5E7EB] overflow-x-auto shrink-0">

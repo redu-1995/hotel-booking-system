@@ -107,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={onOpenDesignSystemClick}
                   className="text-xs text-[#D4A853] hover:underline cursor-pointer flex items-center gap-1"
                 >
-                  <span>UI Specs</span>
+               
                 </button>
               </>
             )}
