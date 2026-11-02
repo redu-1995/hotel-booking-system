@@ -161,26 +161,54 @@ CHAPA_API_BASE_URL = config(
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILER_BACKEND = config(
-    "MAILER_BACKEND",
-    default="django.core.mail.backends.console.EmailBackend",
-)
-MAILER_OPTIONS = {}
-if MAILER_BACKEND == "django.core.mail.backends.smtp.EmailBackend":
-    MAILER_OPTIONS = {
-        "host": config("MAILER_HOST"),
-        "port": config("MAILER_PORT", default=587, cast=int),
-        "username": config("MAILER_USERNAME"),
-        "password": config("MAILER_PASSWORD"),
-        "use_tls": config("MAILER_USE_TLS", default=True, cast=bool),
-    }
 
-MAILERS = {
-    "default": {
-        "BACKEND": MAILER_BACKEND,
-        "OPTIONS": MAILER_OPTIONS,
-    },
-}
-DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="reservations@thegrandviewhotel.com")
+# Email Configuration
+
+EMAIL_BACKEND = config(
+    "MAILER_BACKEND",
+    default="django.core.mail.backends.smtp.EmailBackend",
+)
+
+EMAIL_HOST = config(
+    "MAILER_HOST",
+    default="smtp-relay.brevo.com",
+)
+
+EMAIL_PORT = config(
+    "MAILER_PORT",
+    default=587,
+    cast=int,
+)
+
+EMAIL_HOST_USER = config(
+    "MAILER_USERNAME",
+    default="",
+)
+
+EMAIL_HOST_PASSWORD = config(
+    "MAILER_PASSWORD",
+    default="",
+)
+
+EMAIL_USE_TLS = config(
+    "MAILER_USE_TLS",
+    default=True,
+    cast=bool,
+)
+
+EMAIL_TIMEOUT = config(
+    "MAILER_TIMEOUT",
+    default=20,
+    cast=int,
+)
+
+DEFAULT_FROM_EMAIL = config(
+    "DEFAULT_FROM_EMAIL",
+    default="Abreham <nara1415karol@gmail.com>",
+)
+
 HOTEL_NOTIFICATION_EMAIL = config("HOTEL_NOTIFICATION_EMAIL", default="")
-HOTEL_CONTACT_PHONE = config("HOTEL_CONTACT_PHONE", default="+1 (800) 458-7200")
+HOTEL_CONTACT_PHONE = config(
+    "HOTEL_CONTACT_PHONE",
+    default="+1 (800) 458-7200",
+)

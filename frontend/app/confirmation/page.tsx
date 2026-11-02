@@ -175,10 +175,12 @@ export default async function ConfirmationPage({ params: routeParams, searchPara
                 </Link>
               )}
               <Link
-                href="/booking/lookup"
+                href={reference
+                  ? `/booking/lookup?verify=1&reference=${encodeURIComponent(reference)}`
+                  : "/booking/lookup?verify=1"}
                 className="mt-4 inline-flex min-h-11 items-center justify-center border border-[#D5D0C7] px-5 text-sm font-semibold text-[#35463d] hover:bg-white"
               >
-                Manage an existing booking
+                Find and verify booking
               </Link>
             </>
           )}

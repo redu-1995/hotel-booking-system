@@ -51,9 +51,18 @@ export default function BookingLookupPage() {
 
 	useEffect(() => {
 		let active = true;
-		getManagedBooking()
+		const query = new URLSearchParams(window.location.search);
+		const requireVerification = query.get("verify") === "1";
+		const reference = query.get("reference");
+		const currentBookingRequest = requireVerification
+			? Promise.resolve(null)
+			: getManagedBooking();
+
+		currentBookingRequest
 			.then((currentBooking) => {
-				if (active) {
+				if (!active) return;
+				if (reference) setBookingReference(reference.toUpperCase());
+				if (currentBooking) {
 					setBooking(currentBooking);
 					setBookingReference(currentBooking.booking_reference);
 					setStep("manage");
