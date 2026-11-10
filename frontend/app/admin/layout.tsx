@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AdminShell from "@/components/dashboard/AdminShell";
 
 export const metadata: Metadata = {
-	title: "Hotel Operations | Asteria House",
+	title: "Hotel Operations | The Grandview Hotel",
 	description: "Staff booking and hotel operations dashboard.",
 };
 

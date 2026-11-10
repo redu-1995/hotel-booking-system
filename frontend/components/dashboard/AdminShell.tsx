@@ -90,28 +90,34 @@ export default function AdminShell({ children }: Props) {
 	}
 
 	if (checkingSession) {
-		return <main className="grid min-h-screen place-items-center bg-[#f2f4ef] text-sm text-[#526258]">Checking staff session…</main>;
+		return <main className="grid min-h-screen place-items-center bg-[#F8F7F4] text-sm text-[#526258]">Checking staff session…</main>;
 	}
 
 	if (!user) {
 		return (
-			<main className="grid min-h-screen place-items-center bg-[#f2f4ef] px-5 py-12">
-				<section className="w-full max-w-md border border-[#d9dfd7] bg-white p-7 sm:p-9">
-					<Link href="/" className="font-serif text-lg font-semibold tracking-wide text-[#29443a]">ASTERIA HOUSE</Link>
+			<main className="grid min-h-screen place-items-center bg-[#F8F7F4] px-5 py-12">
+				<section className="w-full max-w-md border border-[#E5E7EB] bg-white p-7 sm:p-9">
+					<Link href="/" className="inline-flex items-center gap-3 text-[#12355B]">
+						<span className="grid size-10 place-items-center rounded-[8px] bg-[#12355B] font-serif text-xl font-bold tracking-tighter text-[#D4A853]">G</span>
+						<span>
+							<span className="block font-serif text-lg font-bold tracking-tight">THE GRANDVIEW</span>
+							<span className="mt-1 block text-[9px] font-medium uppercase tracking-[0.2em] text-[#6B7280]">Hotel &amp; Suites</span>
+						</span>
+					</Link>
 					<p className="mt-10 text-xs font-semibold uppercase tracking-[0.12em] text-[#777f78]">Staff access</p>
-					<h1 className="mt-2 font-serif text-3xl text-[#263a31]">Sign in to operations</h1>
+					<h1 className="mt-2 font-serif text-3xl text-[#12355B]">Sign in to operations</h1>
 					<p className="mt-2 text-sm leading-6 text-[#68736b]">Use your hotel staff account to manage arrivals and reservations.</p>
 					{error && <p role="alert" className="mt-5 border border-[#e7c2b9] bg-[#fff5f1] p-3 text-sm text-[#884637]">{error}</p>}
 					<form onSubmit={handleLogin} className="mt-6 grid gap-4">
-						<label className="grid gap-1.5 text-sm font-medium text-[#35463d]">
+						<label className="grid gap-1.5 text-sm font-medium text-[#1F2937]">
 							Username or email
-							<input autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)} className="h-11 border border-[#cfd7ce] px-3 outline-none focus:border-[#536f5d] focus:ring-2 focus:ring-[#536f5d]/15" />
+							<input autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)} className="h-11 border border-[#D1D5DB] px-3 outline-none focus:border-[#536f5d] focus:ring-2 focus:ring-[#536f5d]/15" />
 						</label>
-						<label className="grid gap-1.5 text-sm font-medium text-[#35463d]">
+						<label className="grid gap-1.5 text-sm font-medium text-[#1F2937]">
 							Password
-							<input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} className="h-11 border border-[#cfd7ce] px-3 outline-none focus:border-[#536f5d] focus:ring-2 focus:ring-[#536f5d]/15" />
+							<input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} className="h-11 border border-[#D1D5DB] px-3 outline-none focus:border-[#536f5d] focus:ring-2 focus:ring-[#536f5d]/15" />
 						</label>
-						<button disabled={isSubmitting} className="mt-2 inline-flex h-11 items-center justify-center bg-[#29443a] px-4 text-sm font-semibold text-white hover:bg-[#20382f] disabled:cursor-wait disabled:opacity-60">
+						<button disabled={isSubmitting} className="mt-2 inline-flex h-11 items-center justify-center bg-[#12355B] px-4 text-sm font-semibold text-white hover:bg-[#0e2a4a] disabled:cursor-wait disabled:opacity-60">
 							{isSubmitting ? "Signing in…" : "Continue"}
 						</button>
 					</form>
@@ -125,50 +131,56 @@ export default function AdminShell({ children }: Props) {
 		: pathname === href || pathname.startsWith(`${href}/`);
 
 	return (
-		<div className="min-h-screen bg-[#f2f4ef] text-[#263a31]">
-			<aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[#d8dfd7] bg-[#fafbf8] px-5 py-6 lg:flex">
-				<Link href="/admin" className="font-serif text-xl font-semibold tracking-wide text-[#29443a]">ASTERIA HOUSE</Link>
-				<p className="mt-1 px-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#858d84]">StayDirect · Admin</p>
+		<div className="min-h-screen bg-[#F8F7F4] text-[#1F2937]">
+			<aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[#E5E7EB] bg-white px-5 py-6 lg:flex">
+				<Link href="/admin" className="inline-flex items-center gap-3 text-[#12355B]">
+					<span className="grid size-10 place-items-center rounded-[8px] bg-[#12355B] font-serif text-xl font-bold tracking-tighter text-[#D4A853]">G</span>
+					<span>
+						<span className="block font-serif text-lg font-bold tracking-tight">THE GRANDVIEW</span>
+						<span className="mt-1 block text-[9px] font-medium uppercase tracking-[0.2em] text-[#6B7280]">Hotel &amp; Suites</span>
+					</span>
+				</Link>
+				<p className="mt-1 px-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#858d84]">Grandview · Admin</p>
 				<p className="mt-12 px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#858d84]">Hotel operations</p>
 				<nav aria-label="Admin navigation" className="mt-3 grid gap-1">
 					{navigation.map(({ href, label, icon: Icon }) => (
-						<Link key={href} href={href} className={`flex h-10 items-center gap-3 px-3 text-sm transition-colors ${activeLink(href) ? "bg-[#e9eee7] font-semibold text-[#29443a]" : "text-[#5e6a61] hover:bg-[#f0f3ed] hover:text-[#29443a]"}`}>
+						<Link key={href} href={href} className={`flex h-10 items-center gap-3 px-3 text-sm transition-colors ${activeLink(href) ? "border-l-2 border-[#D4A853] bg-[#F3F4F6] font-semibold text-[#12355B]" : "text-[#5e6a61] hover:bg-[#F9FAFB] hover:text-[#12355B]"}`}>
 							<Icon aria-hidden="true" className="h-4 w-4" />{label}
 						</Link>
 					))}
 				</nav>
-				<div className="mt-auto border-t border-[#e1e5df] pt-4">
+				<div className="mt-auto border-t border-[#E5E7EB] pt-4">
 					<p className="truncate px-3 text-sm font-medium">{user.first_name || user.username}</p>
 					<p className="px-3 pt-1 text-xs text-[#7b857d]">{user.role.replaceAll("_", " ")}</p>
-					<button type="button" onClick={handleLogout} className="mt-4 flex h-10 w-full items-center gap-3 px-3 text-sm text-[#6c756e] hover:bg-[#f0f3ed] hover:text-[#29443a]">
+					<button type="button" onClick={handleLogout} className="mt-4 flex h-10 w-full items-center gap-3 px-3 text-sm text-[#6c756e] hover:bg-[#F9FAFB] hover:text-[#12355B]">
 						<LogOut aria-hidden="true" className="h-4 w-4" />Log out
 					</button>
 				</div>
 			</aside>
 
 			<div className="lg:pl-64">
-				<header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#d8dfd7] bg-[#fafbf8]/95 px-4 backdrop-blur sm:px-7">
+				<header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#E5E7EB] bg-white/95 px-4 backdrop-blur sm:px-7">
 					<div className="flex min-w-0 items-center gap-3">
-						<Link href="/admin" className="font-serif text-lg font-semibold tracking-wide text-[#29443a] lg:hidden">StayDirect</Link>
-						<span className="hidden h-5 w-px bg-[#d8dfd7] lg:block" />
-						<h1 className="truncate font-serif text-lg font-semibold text-[#2e3932]">{pageTitle}</h1>
+						<Link href="/admin" className="font-serif text-sm font-bold tracking-tight text-[#12355B] lg:hidden">THE GRANDVIEW</Link>
+						<span className="hidden h-5 w-px bg-[#E5E7EB] lg:block" />
+						<h1 className="truncate font-serif text-lg font-semibold text-[#12355B]">{pageTitle}</h1>
 					</div>
 					<div className="ml-auto flex items-center gap-2 sm:gap-3">
 						<NotificationBell />
 						<span className="hidden text-sm text-[#59665d] sm:inline">{user.first_name || user.username}</span>
-						<button type="button" onClick={() => setMobileMenuOpen((open) => !open)} aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileMenuOpen} className="grid h-9 w-9 place-items-center text-[#526258] hover:bg-[#edf1ea] lg:hidden">
+						<button type="button" onClick={() => setMobileMenuOpen((open) => !open)} aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileMenuOpen} className="grid h-9 w-9 place-items-center text-[#526258] hover:bg-[#F3F4F6] lg:hidden">
 							{mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
 						</button>
 					</div>
 				</header>
-				<div className="flex min-h-10 items-center justify-between gap-3 bg-[#26322c] px-4 text-xs text-[#f3f5ef] sm:px-7">
-					<p className="flex items-center gap-2"><span className="size-2 rounded-full bg-[#9fbd88]" />StayDirect Management Portal <span className="hidden text-[#b8c2b9] sm:inline">· Asteria House</span></p>
+				<div className="flex min-h-10 items-center justify-between gap-3 bg-[#12355B] px-4 text-xs text-white/90 sm:px-7">
+					<p className="flex items-center gap-2"><span className="size-2 rounded-full bg-[#D4A853]" />Grandview Hotel Management Portal</p>
 					<Link href="/" className="shrink-0 underline decoration-[#9ca99e] underline-offset-2 hover:text-white">View guest website <span aria-hidden="true">↗</span></Link>
 				</div>
 				{mobileMenuOpen && (
-					<nav aria-label="Mobile admin navigation" className="absolute inset-x-0 top-14 z-20 border-b border-[#d8dfd7] bg-[#fafbf8] p-3 shadow-md lg:hidden">
+					<nav aria-label="Mobile admin navigation" className="absolute inset-x-0 top-14 z-20 border-b border-[#E5E7EB] bg-white p-3 shadow-md lg:hidden">
 						{navigation.map(({ href, label, icon: Icon }) => (
-							<Link key={href} href={href} onClick={() => setMobileMenuOpen(false)} className={`flex h-11 items-center gap-3 px-3 text-sm ${activeLink(href) ? "bg-[#e9eee7] font-semibold text-[#29443a]" : "text-[#5e6a61]"}`}>
+							<Link key={href} href={href} onClick={() => setMobileMenuOpen(false)} className={`flex h-11 items-center gap-3 px-3 text-sm ${activeLink(href) ? "border-l-2 border-[#D4A853] bg-[#F3F4F6] font-semibold text-[#12355B]" : "text-[#5e6a61]"}`}>
 								<Icon aria-hidden="true" className="h-4 w-4" />{label}
 							</Link>
 						))}

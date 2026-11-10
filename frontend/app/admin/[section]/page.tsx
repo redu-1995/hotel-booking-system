@@ -16,10 +16,10 @@ export default async function AdminSectionPlaceholder({ params }: PageProps<"/ad
 	return (
 		<section className="max-w-3xl">
 			<p className="text-xs font-semibold uppercase tracking-[0.13em] text-[#788279]">Hotel operations</p>
-			<h1 className="mt-2 font-serif text-4xl text-[#263a31]">{title}</h1>
-			<div className="mt-7 border border-dashed border-[#cbd5ca] bg-white px-6 py-12">
+			<h1 className="mt-2 font-serif text-4xl text-[#12355B]">{title}</h1>
+			<div className="mt-7 border border-dashed border-[#D1D5DB] bg-white px-6 py-12">
 				<p className="text-sm leading-6 text-[#657168]">{detail}</p>
-				<Link href="/admin" className="mt-5 inline-flex h-10 items-center bg-[#29443a] px-4 text-sm font-semibold text-white hover:bg-[#20382f]">Return to overview</Link>
+				<Link href="/admin" className="mt-5 inline-flex h-10 items-center bg-[#12355B] px-4 text-sm font-semibold text-white hover:bg-[#0e2a4a]">Return to overview</Link>
 			</div>
 		</section>
 	);

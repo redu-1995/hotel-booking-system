@@ -53,7 +53,7 @@ export function NotificationBell() {
         aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
-        className="relative grid size-10 place-items-center border border-[#d8ded5] bg-[#f7f8f3] text-[#24352d] hover:bg-white"
+        className="relative grid size-10 place-items-center border border-[#E5E7EB] bg-[#F9FAFB] text-[#24352d] hover:bg-white"
       >
         <Bell aria-hidden="true" className="size-5" />
         {unreadCount > 0 && (
@@ -63,15 +63,15 @@ export function NotificationBell() {
         )}
       </button>
       {isOpen && (
-        <section className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] border border-[#d8ded5] bg-[#fffefa] shadow-lg">
-          <div className="flex items-center justify-between border-b border-[#d8ded5] px-4 py-3">
+        <section className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] border border-[#E5E7EB] bg-[#fffefa] shadow-lg">
+          <div className="flex items-center justify-between border-b border-[#E5E7EB] px-4 py-3">
             <h2 className="text-sm font-semibold text-[#24352d]">Notifications</h2>
             <span className="text-xs text-[#65736a]">{unreadCount} unread</span>
           </div>
           {notifications.length ? (
             <ul className="max-h-[min(28rem,70vh)] overflow-y-auto">
               {notifications.map((notification) => (
-                <li key={notification.id} className="border-b border-[#e5e8e2] last:border-b-0">
+                <li key={notification.id} className="border-b border-[#E5E7EB] last:border-b-0">
                   <button
                     type="button"
                     onClick={() => markRead(notification)}
